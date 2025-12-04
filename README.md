@@ -63,7 +63,7 @@ This system is part of quality improvement project. It makes inspection data mor
 ## 2. System Architecture
 
 #### Diagram: System Architecture
-<!-- Add your system architecture diagram here -->
+![System Architecture](Diagram%20System%20Architecture.png)
 
 ### How It Works
 
