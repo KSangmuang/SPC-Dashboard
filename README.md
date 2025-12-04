@@ -363,7 +363,7 @@ Power BI generates summary reports for management to review quality trends.
 
 | Report | Content | Frequency |
 |--------|---------|-----------|
-| Weekly Summary | Top problem points, trend analysis | Weekly |
+| Weekly Summary | Top problem points, Paleto Chart | Weekly |
 | Monthly Summary | Overall quality metrics, improvement tracking | Monthly |
 | Issue Report | Points that exceed limits, action required | As needed |
 
