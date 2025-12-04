@@ -55,7 +55,7 @@ This system is part of quality improvement project. It makes inspection data mor
 |------|-------------|
 | Data per item | ~450 measurement points |
 | Measurement types | GD&T and XYZ coordinates |
-| Data source | CMM machine output (Excel files) |
+| Data source | Camera Inspection machine output (Excel files) |
 | 1 Excel file | = 1 product item |
 
 ---
@@ -67,11 +67,11 @@ This system is part of quality improvement project. It makes inspection data mor
 
 ### How It Works
 
-The system runs as a **Windows Service** on a PC at the shopfloor. It automatically collects Excel files from the CMM machine output folder.
+The system runs as a **Windows Service** on a PC at the shopfloor. It automatically collects Excel files from the Camera Inspection machine output folder.
 
 **Process Flow:**
 
-1. **CMM Machine** → Measures product → Outputs Excel file (1 file = 1 item)
+1. **Camera Inspection Machine** → Measures product → Outputs Excel file (1 file = 1 item)
 2. **Windows Service** → Detects new Excel file → Reads measurement data
 3. **Calculation** → Calculates PPK, PP, UCL, LCL using last 125 items
 4. **SQL Database** → Stores all data in universal tables
@@ -134,7 +134,7 @@ We use **5 universal tables** for ALL production lines. Each table has `producti
 ### Step-by-Step Flow
 
 ```
-CMM Machine
+Camera Inspection Machine
     ↓
 Excel File (1 file = 1 product)
     ↓
@@ -201,7 +201,7 @@ The system runs as a Windows Service on a PC at shopfloor. We have a program to 
 - Windows 10/11 or Windows Server
 - Python 3.8+ (bundled in installer)
 - Network access to SQL Server
-- Access to CMM output folder
+- Access to Camera Inspection output folder
 
 ---
 
@@ -226,7 +226,7 @@ DB_PASS=your_password
 PRODUCTION_LINE=LINE_01
 
 # File Paths
-INPUT_DIRECTORY=C:\path\to\cmm\output
+INPUT_DIRECTORY=C:\path\to\camera_inspection\output
 OUTPUT_DIRECTORY=C:\path\to\reports
 
 # Processing Settings
@@ -242,7 +242,7 @@ PROCESS_INTERVAL=120
 | `DB_USER` | Database username | (your username) |
 | `DB_PASS` | Database password | (your password) |
 | `PRODUCTION_LINE` | Line identifier | LINE_01 |
-| `INPUT_DIRECTORY` | CMM output folder path | C:\CMM_Output |
+| `INPUT_DIRECTORY` | Camera Inspection output folder path | C:\Camera_Output |
 | `OUTPUT_DIRECTORY` | Report output folder | C:\QC_Reports |
 | `PROCESS_INTERVAL` | Seconds between checks | 120 |
 
@@ -262,7 +262,7 @@ Once installed, the service runs automatically:
 
 1. **Starts with Windows** - Service starts when PC boots
 2. **Runs on interval** - Follows production cycle time
-3. **Detects new files** - Checks CMM output folder for new Excel files
+3. **Detects new files** - Checks Camera Inspection output folder for new Excel files
 4. **Processes automatically** - No manual action needed
 
 ### Processing Cycle
@@ -444,7 +444,7 @@ Each production line has its own code because measurement data and points are di
 |--------|-------------|
 | Different points | Each line measures different points |
 | Different specs | Specification limits vary by product |
-| Different Excel format | CMM output format may differ |
+| Different Excel format | Camera Inspection output format may differ |
 
 ### Steps to Add New Line
 
@@ -475,3 +475,17 @@ The universal database design means:
 - [ ] Verify data appears in Grafana
 - [ ] Add to Power BI reports
 
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file.
+
+---
+
+## Support
+
+- Documentation: `/docs` folder
+- Issues: Open GitHub issue
+
+---
