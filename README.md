@@ -33,7 +33,7 @@ This system is part of quality improvement project. It makes inspection data mor
 
 ### What This System Does
 
-- Collects inspection data from CMM machine (Excel files)
+- Collects inspection data from Camera Inspection machine (Excel files)
 - Calculates statistical values (PPK, PP, UCL, LCL)
 - Stores data in SQL Server database
 - Displays real-time SPC charts on Grafana (shopfloor monitoring)
