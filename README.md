@@ -92,7 +92,7 @@ The system runs as a **Windows Service** on a PC at the shopfloor. It automatica
 ## 3. Database Design
 
 #### Diagram: Database Schema
-![Database Schema](Diagram%20Data%20Architecture.png)
+![Database Schema](Diagram%20Data%20base%20design.png)
 
 ### Universal Tables
 
