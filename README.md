@@ -1915,40 +1915,6 @@ If issues persist:
 
 ---
 
-## Appendix: Quick Reference
-
-### File Locations
-
-| Item | Location |
-|------|----------|
-| Main Script | `C:\SPC_System\MainSCPProduction1L1.py` |
-| Configuration | `C:\SPC_System\.env` |
-| Activity Log | `{source}\Production1L1_Log\Logs\SPC_Log_*.xlsx` |
-| Processed Log | `{source}\Production1L1_Log\Logs\processed_files_log.xlsx` |
-| Spec Cache | `{source}\Production1L1_Log\Specs\Specs_Production1L1.xlsx` |
-| Shift Output | `{source}\Production1L1_Log\Output\*.xlsx` |
-
-### Key Commands
-
-| Action | Command |
-|--------|---------|
-| Run manually | `python MainSCPProduction1L1.py` |
-| Install service | `nssm install SPC_Production1L1 ...` |
-| Start service | `nssm start SPC_Production1L1` |
-| Stop service | `nssm stop SPC_Production1L1` |
-| View service status | `nssm status SPC_Production1L1` |
-| Refresh specs | Delete `Specs_Production1L1.xlsx` and restart |
-
-### Database Tables
-
-| Table | Purpose |
-|-------|---------|
-| QC_Inspection_Header | File metadata (2 rows per item) |
-| QC_GDT_Data | GD&T values + UCL/LCL |
-| QC_XYZ_Data | XYZ values + UCL/LCL |
-| QC_PPK_PP_Data | PPK/PP calculations |
-| QC_Specs | Specification limits |
-
 ---
 
 *Last Updated: December 2025*
