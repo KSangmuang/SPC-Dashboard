@@ -33,28 +33,120 @@ Quality data collection and analysis system for production lines.
 
 ## 1. Overview
 
-This system is part of a quality improvement project. It makes inspection data more accessible and uses that data to analyze issues and find ways to improve production.
+### Project Background
+
+This project is a continuation and digital transformation of a quality inspection system originally set up by Japanese engineers during the production line installation.
+
+#### The Original Setup
+
+The original system was **semi-digital**:
+- **Camera Inspection Station**: Uses industrial cameras that detect surface depth variations through color analysis (not traditional CMM)
+- **PLC Connection**: Camera data flows to PLC (Programmable Logic Controller)
+- **MX Sheet Export**: PLC connects to PC using Mitsubishi MX Sheet software, which automatically exports measurement data to Excel files
+- **Manual Process**: Engineers manually reviewed Excel files for quality checks
+```
+┌─────────────────┐     ┌─────────┐     ┌─────────────┐     ┌─────────────┐
+│ Camera Station  │────▶│   PLC   │────▶│  MX Sheet   │────▶│ Excel File  │
+│ (Depth by Color)│     │         │     │  (PC Link)  │     │  (Manual)   │
+└─────────────────┘     └─────────┘     └─────────────┘     └─────────────┘
+```
+
+#### The Challenge
+
+Stakeholders identified several limitations with the original setup:
+
+| Problem | Impact |
+|---------|--------|
+| Data trapped in Excel files | Cannot easily analyze trends over time |
+| No real-time monitoring | QC team cannot see issues immediately |
+| Manual comparison with CMM | Time-consuming correlation analysis |
+| No historical database | Cannot trace quality issues back to source |
+| Report generation manual | Weekly/monthly reports take hours to create |
+
+**Stakeholder Requirement**: Transform this into a **fully digital system** that can:
+- Automatically collect and store all inspection data
+- Compare camera inspection results with CMM measurements
+- Provide real-time SPC charts for shopfloor monitoring
+- Enable data analysis to identify quality issues and adjust production
+
+#### My Approach
+
+When I started this project, I faced constraints:
+- **No PLC expertise**: I didn't have knowledge about the PLC programming or MX Sheet configuration
+- **Cannot modify existing setup**: Stakeholders wanted to keep the proven PLC → MX Sheet → Excel workflow unchanged
+- **Must work with what exists**: The Excel output format was fixed
+
+**Solution Strategy**: Instead of changing the upstream system, I built a **downstream data collection layer**:
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    EXISTING SYSTEM (Unchanged)                               │
+│  ┌─────────────────┐     ┌─────────┐     ┌─────────────┐     ┌───────────┐ │
+│  │ Camera Station  │────▶│   PLC   │────▶│  MX Sheet   │────▶│Excel File │ │
+│  └─────────────────┘     └─────────┘     └─────────────┘     └─────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                                                      │
+                                                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    NEW DIGITAL LAYER (This Project)                          │
+│  ┌─────────────────┐     ┌─────────────┐     ┌─────────────┐                │
+│  │ Python Collector│────▶│ SQL Server  │────▶│  Grafana    │ Real-time     │
+│  │ (Auto-detect    │     │ (WA_SPC)    │     │  Dashboard  │ SPC Charts    │
+│  │  new files)     │     │             │     └─────────────┘                │
+│  └─────────────────┘     │             │     ┌─────────────┐                │
+│                          │             │────▶│  Power BI   │ Analysis &    │
+│                          └─────────────┘     │  Reports    │ Reporting     │
+│                                              └─────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Project Evolution
+
+| Phase | What I Built | Outcome |
+|-------|--------------|---------|
+| **Phase 1** | Python script to read Excel → Insert to SQL | Data centralized in database |
+| **Phase 2** | Added PPK/PP calculation engine | Statistical process control metrics |
+| **Phase 3** | Connected Grafana for visualization | Real-time SPC charts at shopfloor |
+| **Phase 4** | Built Power BI reports | Weekly/monthly analysis for management |
+| **Phase 5** | Added UCL/LCL calculation | Control limits for process monitoring |
+| **Phase 6** | Multi-line support | Universal database for all production lines |
+
+#### Why Camera Inspection Data Matters
+
+The camera inspection system is unique:
+- **Depth Detection by Color**: Cameras capture surface images where color variations indicate depth differences
+- **Non-contact Measurement**: Unlike CMM probes, cameras measure without touching the part
+- **High Speed**: Can inspect many points simultaneously
+- **Correlation with CMM**: Data must be comparable to CMM results for validation
+
+By digitizing this data, we can:
+- **Compare camera vs CMM results** to validate camera accuracy
+- **Identify systematic errors** in camera measurements
+- **Adjust production parameters** based on trend analysis
+- **Predict quality issues** before they become critical
+
+---
 
 ### What This System Does
 
-- Collects inspection data from CMM (Coordinate Measuring Machine) Excel files in real-time
-- Extracts GD&T (Geometric Dimensioning & Tolerancing) measurements
-- Extracts XYZ coordinate measurements
-- Calculates PPK (Process Performance Index) and PP values
-- Calculates UCL (Upper Control Limit) and LCL (Lower Control Limit)
-- Determines quality status (OK/NG) by comparing values against specification limits
-- Stores all data in SQL Server database
-- Generates Excel summary reports by shift
-- Displays real-time SPC charts on Grafana
-- Provides data for Power BI reports
+* Collects inspection data from Camera Inspection Excel files in real-time
+* Extracts GD&T (Geometric Dimensioning & Tolerancing) measurements
+* Extracts XYZ coordinate measurements
+* Calculates PPK (Process Performance Index) and PP values
+* Calculates UCL (Upper Control Limit) and LCL (Lower Control Limit)
+* Determines quality status (OK/NG) by comparing values against specification limits
+* Stores all data in SQL Server database
+* Generates Excel summary reports by shift
+* Displays real-time SPC charts on Grafana
+* Provides data for Power BI reports and CMM correlation analysis
 
 ### Who Uses This System
 
 | User | Purpose |
 |------|---------|
 | QC Team | Monitor real-time SPC at shopfloor |
-| Engineering | Analyze issues and improve process |
+| Engineering | Analyze issues, compare with CMM, improve process |
 | Management | Review weekly/monthly quality reports |
+| Japanese HQ | Access standardized quality data |
 
 ### Key Numbers
 
@@ -65,8 +157,6 @@ This system is part of a quality improvement project. It makes inspection data m
 | Samples for PPK calculation | Last 125 items |
 | SQL tables | 5 universal tables |
 | Data per inspection | ~3,400 rows |
-
----
 
 ## 2. System Architecture
 
