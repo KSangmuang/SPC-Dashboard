@@ -44,12 +44,31 @@ The original system was **semi-digital**:
 - **PLC Connection**: Camera data flows to PLC (Programmable Logic Controller)
 - **MX Sheet Export**: PLC connects to PC using Mitsubishi MX Sheet software, which automatically exports measurement data to Excel files
 - **Manual Process**: Engineers manually reviewed Excel files for quality checks
+
+```mermaid
+flowchart LR
+    subgraph INSPECTION["📷 Camera Inspection"]
+        CAM[Camera Station<br/>Depth Detection by Color]
+    end
+    
+    subgraph CONTROL["⚡ Control System"]
+        PLC[PLC<br/>Mitsubishi]
+        PC[PC with MX Sheet<br/>Auto Export]
+    end
+    
+    subgraph OUTPUT["📄 Output"]
+        EXCEL[Excel Files<br/>Manual Review]
+    end
+    
+    CAM -->|Measurement Data| PLC
+    PLC -->|MX Sheet Link| PC
+    PC -->|Auto Export| EXCEL
+    
+    style EXCEL fill:#ffcccc,stroke:#cc0000
+    style CAM fill:#cce5ff,stroke:#0066cc
 ```
-┌─────────────────┐     ┌─────────┐     ┌─────────────┐     ┌─────────────┐
-│ Camera Station  │────▶│   PLC   │────▶│  MX Sheet   │────▶│ Excel File  │
-│ (Depth by Color)│     │         │     │  (PC Link)  │     │  (Manual)   │
-└─────────────────┘     └─────────┘     └─────────────┘     └─────────────┘
-```
+
+**⚠️ Problem**: Data was trapped in Excel files with no centralized database, no real-time monitoring, and manual report generation.
 
 #### The Challenge
 
@@ -77,29 +96,88 @@ When I started this project, I faced constraints:
 - **Must work with what exists**: The Excel output format was fixed
 
 **Solution Strategy**: Instead of changing the upstream system, I built a **downstream data collection layer**:
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    EXISTING SYSTEM (Unchanged)                               │
-│  ┌─────────────────┐     ┌─────────┐     ┌─────────────┐     ┌───────────┐ │
-│  │ Camera Station  │────▶│   PLC   │────▶│  MX Sheet   │────▶│Excel File │ │
-│  └─────────────────┘     └─────────┘     └─────────────┘     └─────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                                                      │
-                                                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    NEW DIGITAL LAYER (This Project)                          │
-│  ┌─────────────────┐     ┌─────────────┐     ┌─────────────┐                │
-│  │ Python Collector│────▶│ SQL Server  │────▶│  Grafana    │ Real-time     │
-│  │ (Auto-detect    │     │ (WA_SPC)    │     │  Dashboard  │ SPC Charts    │
-│  │  new files)     │     │             │     └─────────────┘                │
-│  └─────────────────┘     │             │     ┌─────────────┐                │
-│                          │             │────▶│  Power BI   │ Analysis &    │
-│                          └─────────────┘     │  Reports    │ Reporting     │
-│                                              └─────────────┘                │
-└─────────────────────────────────────────────────────────────────────────────┘
+
+```mermaid
+flowchart TB
+    subgraph EXISTING["🔒 EXISTING SYSTEM (Unchanged)"]
+        CAM[📷 Camera Station<br/>Depth by Color]
+        PLC[⚡ PLC]
+        MX[💻 MX Sheet]
+        EXCEL[📄 Excel File]
+        
+        CAM --> PLC
+        PLC --> MX
+        MX --> EXCEL
+    end
+    
+    subgraph NEW["✨ NEW DIGITAL LAYER (This Project)"]
+        subgraph PROCESS["⚙️ Python Processing"]
+            COLLECTOR[🐍 Python Collector<br/>Auto-detect new files]
+            PPK_CALC[📊 PPK Calculator]
+            SPEC[📋 Spec Loader]
+        end
+        
+        subgraph DATABASE["🗄️ SQL Server"]
+            DB[(WA_SPC<br/>Database)]
+        end
+        
+        subgraph VISUAL["📈 Visualization"]
+            GRAFANA[Grafana<br/>Real-time SPC]
+            POWERBI[Power BI<br/>Analysis & Reports]
+        end
+    end
+    
+    EXCEL -->|Auto Collect| COLLECTOR
+    COLLECTOR --> PPK_CALC
+    COLLECTOR --> SPEC
+    PPK_CALC --> DB
+    SPEC --> DB
+    COLLECTOR --> DB
+    DB --> GRAFANA
+    DB --> POWERBI
+    
+    style EXISTING fill:#fff3cd,stroke:#856404
+    style NEW fill:#d4edda,stroke:#155724
+    style DB fill:#cce5ff,stroke:#004085
 ```
 
 #### Project Evolution
+
+```mermaid
+flowchart LR
+    subgraph P1["Phase 1"]
+        A1[📥 Excel → SQL<br/>Basic data collection]
+    end
+    
+    subgraph P2["Phase 2"]
+        A2[📊 PPK/PP Engine<br/>Statistical metrics]
+    end
+    
+    subgraph P3["Phase 3"]
+        A3[📈 Grafana<br/>Real-time charts]
+    end
+    
+    subgraph P4["Phase 4"]
+        A4[📋 Power BI<br/>Management reports]
+    end
+    
+    subgraph P5["Phase 5"]
+        A5[📏 UCL/LCL<br/>Control limits]
+    end
+    
+    subgraph P6["Phase 6"]
+        A6[🏭 Multi-line<br/>Universal database]
+    end
+    
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
+    
+    style P1 fill:#e3f2fd
+    style P2 fill:#e8f5e9
+    style P3 fill:#fff3e0
+    style P4 fill:#fce4ec
+    style P5 fill:#f3e5f5
+    style P6 fill:#e0f7fa
+```
 
 | Phase | What I Built | Outcome |
 |-------|--------------|---------|
@@ -113,6 +191,36 @@ When I started this project, I faced constraints:
 #### Why Camera Inspection Data Matters
 
 The camera inspection system is unique:
+
+```mermaid
+flowchart LR
+    subgraph CAMERA["📷 Camera Inspection"]
+        C1[Take Picture]
+        C2[Color = Depth<br/>Analysis]
+        C3[Generate<br/>Measurements]
+    end
+    
+    subgraph COMPARE["🔄 Correlation"]
+        CMM[CMM Data<br/>Reference]
+        VALIDATE[Validate<br/>Accuracy]
+    end
+    
+    subgraph ACTION["🎯 Action"]
+        ADJUST[Adjust Production<br/>Parameters]
+        PREDICT[Predict Quality<br/>Issues]
+    end
+    
+    C1 --> C2 --> C3
+    C3 --> VALIDATE
+    CMM --> VALIDATE
+    VALIDATE --> ADJUST
+    VALIDATE --> PREDICT
+    
+    style CAMERA fill:#e3f2fd,stroke:#1976d2
+    style COMPARE fill:#fff3e0,stroke:#f57c00
+    style ACTION fill:#e8f5e9,stroke:#388e3c
+```
+
 - **Depth Detection by Color**: Cameras capture surface images where color variations indicate depth differences
 - **Non-contact Measurement**: Unlike CMM probes, cameras measure without touching the part
 - **High Speed**: Can inspect many points simultaneously
@@ -146,7 +254,6 @@ By digitizing this data, we can:
 | QC Team | Monitor real-time SPC at shopfloor |
 | Engineering | Analyze issues, compare with CMM, improve process |
 | Management | Review weekly/monthly quality reports |
-| Japanese HQ | Access standardized quality data |
 
 ### Key Numbers
 
