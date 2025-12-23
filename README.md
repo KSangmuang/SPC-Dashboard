@@ -63,9 +63,6 @@ flowchart LR
     CAM -->|Measurement Data| PLC
     PLC -->|MX Sheet Link| PC
     PC -->|Auto Export| EXCEL
-    
-    style EXCEL fill:#ffcccc,stroke:#cc0000
-    style CAM fill:#cce5ff,stroke:#0066cc
 ```
 
 **⚠️ Problem**: Data was trapped in Excel files with no centralized database, no real-time monitoring, and manual report generation.
@@ -135,10 +132,6 @@ flowchart TB
     COLLECTOR --> DB
     DB --> GRAFANA
     DB --> POWERBI
-    
-    style EXISTING fill:#fff3cd,stroke:#856404
-    style NEW fill:#d4edda,stroke:#155724
-    style DB fill:#cce5ff,stroke:#004085
 ```
 
 #### Project Evolution
@@ -170,13 +163,6 @@ flowchart LR
     end
     
     P1 --> P2 --> P3 --> P4 --> P5 --> P6
-    
-    style P1 fill:#e3f2fd
-    style P2 fill:#e8f5e9
-    style P3 fill:#fff3e0
-    style P4 fill:#fce4ec
-    style P5 fill:#f3e5f5
-    style P6 fill:#e0f7fa
 ```
 
 | Phase | What I Built | Outcome |
@@ -215,10 +201,6 @@ flowchart LR
     CMM --> VALIDATE
     VALIDATE --> ADJUST
     VALIDATE --> PREDICT
-    
-    style CAMERA fill:#e3f2fd,stroke:#1976d2
-    style COMPARE fill:#fff3e0,stroke:#f57c00
-    style ACTION fill:#e8f5e9,stroke:#388e3c
 ```
 
 - **Depth Detection by Color**: Cameras capture surface images where color variations indicate depth differences
