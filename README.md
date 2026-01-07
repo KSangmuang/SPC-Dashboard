@@ -1110,31 +1110,6 @@ Example valid filenames:
 
 Files not matching this pattern are ignored.
 
-### Security Notes
-
-⚠️ **Important Security Practices:**
-
-1. **Never commit `.env` to Git**
-   ```gitignore
-   # .gitignore
-   .env
-   *.log
-   ```
-
-2. **Restrict `.env` file permissions**
-   - Only administrators should have access
-
-3. **Use service account for database**
-   - Create dedicated SQL user with minimum required permissions:
-     - SELECT on QC_Specs
-     - INSERT on QC_Inspection_Header, QC_GDT_Data, QC_XYZ_Data, QC_PPK_PP_Data
-     - SELECT on above tables (for duplicate check)
-
-4. **Network security**
-   - Ensure SQL Server port (1433) is only accessible from shopfloor PCs
-
----
-
 ## 9. Usage
 
 ### Automatic Operation
