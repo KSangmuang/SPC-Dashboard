@@ -1440,6 +1440,8 @@ ORDER BY d.log_date
 
 #### Grafana Panel Recommendations
 
+![Gafana Scada Dashboard](Scada.png)
+
 | Panel Type | Best For |
 |------------|----------|
 | Time series | Measurement values with UCL/LCL |
@@ -1460,6 +1462,8 @@ ORDER BY d.log_date
 ---
 
 ### Power BI - Weekly/Monthly Reports
+
+![Power BI Dashboard](PowerBI.png)
 
 Power BI generates summary reports for management to review quality trends.
 
@@ -1543,8 +1547,9 @@ DIVIDE(TotalItems - NGItems, TotalItems, 0)
 ```
 
 #### Power BI Visualizations
-![Power BI Dashboard](Power%BI.png)
-![Power BI Pareto Dashboard](Paleto%20chart.png)
+
+![Power BI Pareto Dashboard](Paleto20chart.png)
+
 **1. Pareto Chart - Top Problem Points**
 Shows which measurement points have the most NG results:
 
