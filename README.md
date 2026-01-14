@@ -1548,7 +1548,7 @@ DIVIDE(TotalItems - NGItems, TotalItems, 0)
 
 #### Power BI Visualizations
 
-![Power BI Pareto Dashboard](Paleto20chart.png)
+![Power BI Pareto Dashboard](Paretochart.png)
 
 **1. Pareto Chart - Top Problem Points**
 Shows which measurement points have the most NG results:
