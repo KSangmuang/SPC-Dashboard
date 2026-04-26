@@ -180,7 +180,7 @@ flowchart TB
 | GD&T measurement points | Up to 372 per side (LH/RH), varies by line |
 | XYZ measurement points | Up to 579 per side (LH/RH), varies by line |
 | Samples for PPK calculation | Last 125 items (rolling window) |
-| SQL tables | 7 universal tables (5 core + 2 statistics, v2.0) |
+| SQL tables | 13 total (6 Camera + 6 CMM mirrored + Specs share schema) |
 | Production lines supported | 4 (Line_01, Line_02, Line_03, Line_R) |
 
 ---
@@ -197,9 +197,18 @@ analytical layer to compare the two.
 **Major additions:**
 - 🆕 **CMM data integration** via Microsoft Power Platform
   (Power App → Power Automate → SQL Gateway → on-prem SQL)
+- 🆕 **CMM table set** (`cmm_header`, `cmm_gdt`, `cmm_xyz`, `cmm_specs`,
+  `cmm_gdt_stats`, `cmm_xyz_stats`) — same structure as Camera tables,
+  separate storage for clean source separation
+- 🆕 **CMM-to-Camera point mapping** column in `cmm_specs` — bridges the two
+  measurement systems for correlation queries
+- 🆕 **GD&T-to-XYZ link column** in spec tables — maps each GD&T point to
+  the XYZ points used to calculate it
+- 🆕 **`xyz_axis` extended to spec tables** — `"X"`, `"Y"`, `"Z"` for XYZ
+  points; `"None"` for GD&T points (calculated values, no single axis)
 - 🆕 **4-page Power BI dashboard** for structured Camera vs CMM analysis
-- 🆕 **Two new statistics tables** (`QC_GDT_Statistics`, `QC_XYZ_Statistics`)
-  with full lineage to source data
+- 🆕 **Two new statistics tables** (`spc_gdt_stats`, `spc_xyz_stats`)
+  with full lineage to source data (mirrored on CMM side)
 - 🆕 **PPK capability classification**: Capable / Marginal / Not Capable
 - 🆕 **Auto-reconnect logic** with 3-retry mechanism
 - 🆕 **Statistics retry queue** — failed calculations retry at end-of-cycle
@@ -207,7 +216,7 @@ analytical layer to compare the two.
 - 🆕 **PySpark JDBC** integration in spec loader (with pyodbc fallback)
 - 🆕 **Line_R production line** support (different Excel layout)
 - 🆕 One-sided spec handling for PPK (PPU-only or PPL-only)
-- 🆕 `xyz_axis` as dedicated column (was suffix in `data_type`)
+- 🆕 `xyz_axis` as dedicated column on data tables (was suffix in `data_type`)
 
 **Fixed:**
 - PPK = NULL when one spec limit was zero
@@ -342,13 +351,24 @@ flowchart TB
 
     subgraph DATABASE["🗄️ SQL Server: spc_database"]
         DB[(All Tables)]
-        HEADER[QC_Inspection_Header]
-        GDT[QC_GDT_Data]
-        XYZ[QC_XYZ_Data]
-        PPKDB[QC_PPK_PP_Data]
-        SPECS[QC_Specs]
-        GDT_STATS[🆕 QC_GDT_Statistics]
-        XYZ_STATS[🆕 QC_XYZ_Statistics]
+        subgraph CAMERA_TABLES["Camera Tables"]
+            HEADER[spc_header]
+            GDT[spc_gdt]
+            XYZ[spc_xyz]
+            PPKDB[spc_ppk]
+            SPECS[spc_specs<br/>+ gdt_xyz_link<br/>+ xyz_axis]
+            GDT_STATS[🆕 spc_gdt_stats]
+            XYZ_STATS[🆕 spc_xyz_stats]
+        end
+        subgraph CMM_TABLES["🆕 CMM Tables"]
+            CMM_HEADER[cmm_header]
+            CMM_GDT[cmm_gdt]
+            CMM_XYZ[cmm_xyz]
+            CMM_SPECS[cmm_specs<br/>+ camera_mapping<br/>bridges to spc_specs]
+            CMM_GDT_STATS[cmm_gdt_stats]
+            CMM_XYZ_STATS[cmm_xyz_stats]
+        end
+        CMM_SPECS -.bridge.-> SPECS
     end
 
     subgraph OUTPUT["📊 Output"]
@@ -362,7 +382,7 @@ flowchart TB
     APP --> STAGING
     STAGING --> AUTO
     AUTO --> GATEWAY
-    GATEWAY --> DB
+    GATEWAY --> CMM_TABLES
 
     EXCEL --> MAIN
     MAIN --> SPEC
@@ -370,15 +390,8 @@ flowchart TB
     MAIN --> QC
     MAIN --> LOG
     SPEC --> DB
-    STATS --> DB
-    QC --> DB
-    DB --> HEADER
-    DB --> GDT
-    DB --> XYZ
-    DB --> PPKDB
-    DB --> SPECS
-    DB --> GDT_STATS
-    DB --> XYZ_STATS
+    STATS --> CAMERA_TABLES
+    QC --> CAMERA_TABLES
     DB --> GRAFANA
     DB --> POWERBI
     MAIN --> EXCELO
@@ -388,7 +401,7 @@ flowchart TB
 
 The system runs as a **Windows Service** on a PC at the shopfloor. It automatically:
 
-1. **Scans** for new Excel files from CMM machine output folder
+1. **Scans** for new Excel files from Insepction Camera machine output folder
 2. **Reads** GD&T data and XYZ data
 3. **Loads** specification limits from SQL (with Excel caching for speed)
 4. **Checks** quality status (OK/NG) for each measurement
@@ -423,19 +436,38 @@ re-attempted at the end of the scan cycle (v2.0 reliability feature).
 
 ### Database Schema (v2.0)
 
+The schema has **two parallel table sets** in the same database:
+- **Camera tables** (real-time, every product) — prefix: `spc_*`
+- **CMM tables** (sampled, irregular timing) — prefix: `cmm_*`
+
+The CMM tables mirror the Camera tables in structure. The bridge between
+the two is the `camera_mapping` column on `cmm_specs`, which maps each
+CMM measurement code to its Camera equivalent for correlation analysis.
+
 ```mermaid
 erDiagram
-    QC_Inspection_Header ||--o{ QC_GDT_Data : "run_number"
-    QC_Inspection_Header ||--o{ QC_XYZ_Data : "run_number"
-    QC_Inspection_Header ||--o{ QC_PPK_PP_Data : "run_number"
-    QC_Inspection_Header ||--o{ QC_GDT_Statistics : "run_number"
-    QC_Inspection_Header ||--o{ QC_XYZ_Statistics : "run_number"
-    QC_GDT_Data ||--o| QC_GDT_Statistics : "gdt_data_id (lineage)"
-    QC_XYZ_Data ||--o| QC_XYZ_Statistics : "xyz_data_id (lineage)"
-    QC_Specs ||--o{ QC_GDT_Data : "measurement_code"
-    QC_Specs ||--o{ QC_XYZ_Data : "measurement_code"
+    spc_header ||--o{ spc_gdt : "run_number"
+    spc_header ||--o{ spc_xyz : "run_number"
+    spc_header ||--o{ spc_ppk : "run_number"
+    spc_header ||--o{ spc_gdt_stats : "run_number"
+    spc_header ||--o{ spc_xyz_stats : "run_number"
+    spc_gdt ||--o| spc_gdt_stats : "gdt_data_id (lineage)"
+    spc_xyz ||--o| spc_xyz_stats : "xyz_data_id (lineage)"
+    spc_specs ||--o{ spc_gdt : "measurement_code"
+    spc_specs ||--o{ spc_xyz : "measurement_code"
 
-    QC_Inspection_Header {
+    cmm_header ||--o{ cmm_gdt : "run_number"
+    cmm_header ||--o{ cmm_xyz : "run_number"
+    cmm_header ||--o{ cmm_gdt_stats : "run_number"
+    cmm_header ||--o{ cmm_xyz_stats : "run_number"
+    cmm_gdt ||--o| cmm_gdt_stats : "gdt_data_id (lineage)"
+    cmm_xyz ||--o| cmm_xyz_stats : "xyz_data_id (lineage)"
+    cmm_specs ||--o{ cmm_gdt : "measurement_code"
+    cmm_specs ||--o{ cmm_xyz : "measurement_code"
+
+    cmm_specs }o--|| spc_specs : "camera_mapping (bridge)"
+
+    spc_header {
         int inspection_id PK
         varchar production_line
         varchar run_number UK
@@ -447,7 +479,7 @@ erDiagram
         datetime created_date
     }
 
-    QC_GDT_Data {
+    spc_gdt {
         int id PK
         varchar production_line
         varchar run_number FK
@@ -459,7 +491,7 @@ erDiagram
         datetime created_date
     }
 
-    QC_XYZ_Data {
+    spc_xyz {
         int id PK
         varchar production_line
         varchar run_number FK
@@ -472,7 +504,7 @@ erDiagram
         datetime created_date
     }
 
-    QC_PPK_PP_Data {
+    spc_ppk {
         int id PK
         varchar production_line
         varchar run_number FK
@@ -484,7 +516,7 @@ erDiagram
         datetime created_date
     }
 
-    QC_GDT_Statistics {
+    spc_gdt_stats {
         int stat_id PK
         varchar production_line
         varchar run_number FK
@@ -510,7 +542,7 @@ erDiagram
         datetime calculated_at
     }
 
-    QC_XYZ_Statistics {
+    spc_xyz_stats {
         int stat_id PK
         varchar production_line
         varchar run_number FK
@@ -537,12 +569,30 @@ erDiagram
         datetime calculated_at
     }
 
-    QC_Specs {
+    spc_specs {
         int spec_id PK
         varchar production_line
         varchar measurement_code
         varchar measurement_name
         varchar measurement_type
+        varchar xyz_axis
+        varchar gdt_xyz_link
+        float spec_min
+        float spec_max
+        varchar point_group
+        bit is_active
+        datetime created_date
+    }
+
+    cmm_specs {
+        int spec_id PK
+        varchar production_line
+        varchar measurement_code
+        varchar measurement_name
+        varchar measurement_type
+        varchar xyz_axis
+        varchar gdt_xyz_link
+        varchar camera_mapping
         float spec_min
         float spec_max
         varchar point_group
@@ -551,24 +601,131 @@ erDiagram
     }
 ```
 
-### Universal Table Design
-
-We use **7 universal tables** for ALL production lines. Each table has
-`production_line` column to separate data.
+### Camera Table Set
 
 | Table | Purpose | Version |
 |-------|---------|---------|
-| `QC_Inspection_Header` | File metadata, status | v1.0 |
-| `QC_GDT_Data` | GD&T measurements + UCL/LCL | v1.0 |
-| `QC_XYZ_Data` | XYZ coordinates + UCL/LCL | v1.0 |
-| `QC_PPK_PP_Data` | PPK/PP calculation results (legacy) | v1.0 |
-| `QC_Specs` | Specification limits | v1.0 |
-| 🆕 `QC_GDT_Statistics` | GDT stats with full lineage to source row | v2.0 |
-| 🆕 `QC_XYZ_Statistics` | XYZ stats with full lineage to source row | v2.0 |
+| `spc_header` | File metadata, status | v1.0 |
+| `spc_gdt` | GD&T measurements + UCL/LCL | v1.0 |
+| `spc_xyz` | XYZ coordinates + UCL/LCL | v1.0 |
+| `spc_ppk` | PPK/PP calculation results (legacy) | v1.0 |
+| `spc_specs` | Camera specification limits + mapping metadata | v1.0 (extended in v2.0) |
+| 🆕 `spc_gdt_stats` | GDT stats with full lineage to source row | v2.0 |
+| 🆕 `spc_xyz_stats` | XYZ stats with full lineage to source row | v2.0 |
+
+### CMM Table Set 🆕 v2.0
+
+The CMM tables mirror the Camera structure exactly — same columns, same
+relationships, same statistics design. This separation keeps the two
+data sources cleanly isolated while allowing correlation through
+`cmm_specs.camera_mapping`.
+
+| Table | Purpose | Mirrors |
+|-------|---------|---------|
+| 🆕 `cmm_header` | CMM submission metadata | `spc_header` |
+| 🆕 `cmm_gdt` | CMM GD&T measurements | `spc_gdt` |
+| 🆕 `cmm_xyz` | CMM XYZ measurements | `spc_xyz` |
+| 🆕 `cmm_specs` | CMM specification limits + camera mapping | `spc_specs` + extra `camera_mapping` |
+| 🆕 `cmm_gdt_stats` | CMM GDT stats with lineage | `spc_gdt_stats` |
+| 🆕 `cmm_xyz_stats` | CMM XYZ stats with lineage | `spc_xyz_stats` |
+
+**Why mirror instead of merge?**
+
+A merged design (one set of tables with a `data_source` discriminator) was
+considered but rejected because:
+
+- CMM and Camera have **different volumes** (every product vs random sample)
+  — a single fact table would skew toward Camera data
+- CMM has **more measurement points** (extra accuracy points the camera
+  doesn't measure) — would force `NULL`s in shared rows
+- CMM ingestion path is **completely different** (Power Platform vs
+  Python file watcher) — separate tables make ownership clearer
+- Failure isolation — a CMM ingestion bug can't corrupt camera rows
+
+The mirror design keeps both sources clean and correlation explicit
+through the spec mapping.
+
+### Spec Tables — The Bridge Layer
+
+Both `spc_specs` and `cmm_specs` are **reference/dimension tables** that
+hold the metadata describing each measurement point. The v2.0 spec design
+adds three important columns:
+
+| Column | Purpose | On `spc_specs` | On `cmm_specs` |
+|--------|---------|:--------------:|:--------------:|
+| `xyz_axis` | "X", "Y", "Z" for XYZ points; **"None" for GD&T points** | ✅ | ✅ |
+| `gdt_xyz_link` | Links GD&T points to the XYZ points used to calculate them | ✅ | ✅ |
+| `camera_mapping` | Maps CMM measurement_code → equivalent Camera measurement_code | ❌ | ✅ |
+
+#### `xyz_axis` on Specs
+
+GD&T values are calculated from underlying XYZ measurements. To separate
+analysis cleanly:
+
+| `measurement_type` | `xyz_axis` value |
+|--------------------|------------------|
+| XYZ | `"X"`, `"Y"`, or `"Z"` (the actual axis) |
+| GDT | `"None"` (no single axis — calculated from multiple) |
+
+This lets queries like *"show me all X-axis measurements"* run directly
+against the spec table without parsing measurement codes.
+
+#### `gdt_xyz_link` — GD&T to XYZ Traceability
+
+Each GD&T point is calculated from a specific set of XYZ points. The
+`gdt_xyz_link` column stores this relationship so the system can answer:
+
+- *"Which XYZ points feed into this GD&T calculation?"*
+- *"If GD&T value drifts, which underlying XYZ point is causing it?"*
+
+This is critical for **Page 2 of the Power BI dashboard** (drill-down
+view), where a poor GD&T PPK is decomposed into its component XYZ
+measurements and overlaid with temperature.
+
+The same column exists on both spec tables because:
+- Camera GD&T points calculate from Camera XYZ points
+- CMM GD&T points calculate from CMM XYZ points
+- The relationship structure is identical, just the underlying data differs
+
+#### `camera_mapping` — The Correlation Bridge 🆕
+
+This column exists **only on `cmm_specs`**, not on `spc_specs` (Camera is
+the reference; CMM points map to Camera, not vice versa).
+
+Each CMM point's `camera_mapping` value is the `measurement_code` of the
+equivalent Camera point.
+
+| `cmm_specs.measurement_code` | `cmm_specs.camera_mapping` | Meaning |
+|------------------------------|-----------------------------|---------|
+| `CMM_BRKT_3633_A` | `Line_R_BRKT_BMPR_3633` | Same physical point, both systems measure it |
+| `CMM_REF_PIN_X` | `Line_R_PIN_REF_001` | Same physical point with different naming |
+| `CMM_ACCURACY_07` | `NULL` | CMM-only accuracy point — no camera equivalent |
+
+**How correlation joins work:**
+
+```sql
+-- Pages 3 & 4 correlation query pattern
+SELECT
+    cs.measurement_code AS cmm_code,
+    cs.camera_mapping AS camera_code,
+    cd.value AS cmm_value,
+    sd.value AS camera_value
+FROM cmm_specs cs
+JOIN cmm_gdt cd
+    ON cd.measurement_code = cs.measurement_code
+JOIN spc_gdt sd
+    ON sd.measurement_code = cs.camera_mapping
+WHERE cs.camera_mapping IS NOT NULL
+  AND cs.production_line = 'Line_R'
+```
+
+CMM-only points (where `camera_mapping IS NULL`) are excluded from
+correlation pages but still appear on Pages 1 and 2 for standalone
+analysis.
 
 ### Why Two Statistics Tables (v2.0)?
 
-The v1.0 `QC_PPK_PP_Data` table stored PPK/PP as flat values without
+The v1.0 `spc_ppk` table stored PPK/PP as flat values without
 lineage — you couldn't trace which source measurements produced any PPK.
 
 The v2.0 statistics tables fix this:
@@ -582,7 +739,7 @@ You can answer: *"Which 125 samples produced this PPK value, and when was it cal
 
 ### Data Types in Tables
 
-**QC_GDT_Data.data_type:**
+**spc_gdt.data_type:**
 
 | Value | Description |
 |-------|-------------|
@@ -593,7 +750,7 @@ You can answer: *"Which 125 samples produced this PPK value, and when was it cal
 | RH UCL | Right-hand Upper Control Limit |
 | RH LCL | Right-hand Lower Control Limit |
 
-**QC_XYZ_Data.data_type:**
+**spc_xyz.data_type:**
 
 | Value | Description |
 |-------|-------------|
@@ -604,7 +761,7 @@ You can answer: *"Which 125 samples produced this PPK value, and when was it cal
 | RH UCL | Right-hand Upper Control Limit |
 | RH LCL | Right-hand Lower Control Limit |
 
-**QC_XYZ_Data.xyz_axis** (v2.0 dedicated column, was suffix in v1.0):
+**spc_xyz.xyz_axis** (v2.0 dedicated column, was suffix in v1.0):
 
 | Value | Description |
 |-------|-------------|
@@ -613,7 +770,7 @@ You can answer: *"Which 125 samples produced this PPK value, and when was it cal
 | Z | Z-axis coordinate |
 | N | Nominal/other (no axis suffix in code) |
 
-**QC_GDT_Statistics.ppk_status / QC_XYZ_Statistics.ppk_status (v2.0):**
+**spc_gdt_stats.ppk_status / spc_xyz_stats.ppk_status (v2.0):**
 
 | Value | Meaning | Threshold |
 |-------|---------|-----------|
@@ -634,28 +791,46 @@ IF spec_min = 0 AND spec_max = 0 THEN status = "N/A" (no spec defined)
 
 ### Why Universal Design?
 
-- ✅ One set of tables for ALL lines
+- ✅ One set of Camera tables for ALL lines (separated by `production_line`)
+- ✅ One set of CMM tables for ALL lines (same pattern)
 - ✅ Easy to compare data across lines
 - ✅ Add new line = just insert with new `production_line` value
 - ✅ No need to create new tables for new line
 - ✅ Grafana/Power BI queries work automatically
-- ✅ CMM data goes into the same tables (v2.0)
+- ✅ CMM and Camera correlation is explicit through `cmm_specs.camera_mapping`
+  rather than hidden in shared rows
 
 ### Data Volumes
 
-Estimated data growth per day (assuming 100 inspections/day):
+Estimated data growth per day (assuming 100 Camera inspections/day +
+4 CMM submissions/shift = 8/day):
+
+**Camera tables:**
 
 | Table | Rows/Inspection | Rows/Day | Rows/Month |
 |-------|-----------------|----------|------------|
-| QC_Inspection_Header | 2 | 200 | 6,000 |
-| QC_GDT_Data | ~2,976 | ~297,600 | ~8,928,000 |
-| QC_XYZ_Data | ~4,632 | ~463,200 | ~13,896,000 |
-| QC_PPK_PP_Data | ~3,804 | ~380,400 | ~11,412,000 |
-| 🆕 QC_GDT_Statistics | ~744 | ~74,400 | ~2,232,000 |
-| 🆕 QC_XYZ_Statistics | ~1,158 | ~115,800 | ~3,474,000 |
-| **Total** | **~13,316** | **~1,331,600** | **~39,948,000** |
+| spc_header | 2 | 200 | 6,000 |
+| spc_gdt | ~2,976 | ~297,600 | ~8,928,000 |
+| spc_xyz | ~4,632 | ~463,200 | ~13,896,000 |
+| spc_ppk | ~3,804 | ~380,400 | ~11,412,000 |
+| 🆕 spc_gdt_stats | ~744 | ~74,400 | ~2,232,000 |
+| 🆕 spc_xyz_stats | ~1,158 | ~115,800 | ~3,474,000 |
+| **Camera Total** | **~13,316** | **~1,331,600** | **~39,948,000** |
 
-**Note:** Database grows approximately 600MB-1.2GB per month per production line. Plan disk space accordingly.
+**CMM tables (much lower volume due to sample-based inspection):**
+
+| Table | Rows/Submission | Rows/Day | Rows/Month |
+|-------|-----------------|----------|------------|
+| 🆕 cmm_header | 2 | 16 | 480 |
+| 🆕 cmm_gdt | ~3,500 | ~28,000 | ~840,000 |
+| 🆕 cmm_xyz | ~5,500 | ~44,000 | ~1,320,000 |
+| 🆕 cmm_gdt_stats | ~875 | ~7,000 | ~210,000 |
+| 🆕 cmm_xyz_stats | ~1,375 | ~11,000 | ~330,000 |
+| **CMM Total** | **~11,252** | **~90,016** | **~2,700,480** |
+
+**Note:** Camera tables grow ~600MB-1.2GB per month per line. CMM tables
+grow much slower (~50-100MB per month per line) due to sample-based
+inspection. Plan disk space accordingly.
 
 ---
 
@@ -707,8 +882,8 @@ flowchart TD
     end
 
     subgraph INSERT_STATS["⬆️ STATISTICS INSERT - v2.0"]
-        CLASSIFY --> INSERT_GSTATS[Insert QC_GDT_Statistics<br/>with lineage FK]
-        CLASSIFY --> INSERT_XSTATS[Insert QC_XYZ_Statistics<br/>with lineage FK]
+        CLASSIFY --> INSERT_GSTATS[Insert spc_gdt_stats<br/>with lineage FK]
+        CLASSIFY --> INSERT_XSTATS[Insert spc_xyz_stats<br/>with lineage FK]
     end
 
     subgraph VERIFY["✓ VERIFY - v2.0"]
@@ -750,7 +925,7 @@ flowchart LR
     EXCEL[📄 Excel<br/>staging file]
     AUTO[⚙️ Power Automate<br/>extract + transform]
     GATEWAY[🚪 SQL Gateway]
-    DB[(🗄️ spc_database<br/>same as camera)]
+    DB[(🗄️ spc_database<br/>cmm_* tables)]
     BI[📊 Power BI<br/>correlation pages]
 
     WORKER --> APP
@@ -767,8 +942,9 @@ flowchart LR
 |-------------|----------|
 | Workers need a form, not SQL access | Power App mobile/tablet form |
 | No fixed schedule | Power Automate trigger-based, not timer-based |
-| Same database as camera | SQL Gateway bridges cloud → on-prem SQL |
-| Correlation requires unified storage | CMM rows use same tables, different `production_line` value or flag |
+| Same database as camera (for joining) | SQL Gateway bridges cloud → on-prem SQL |
+| Clean source separation | CMM lands in `cmm_*` tables (mirror of `spc_*` tables) |
+| Correlation requires bridge | `cmm_specs.camera_mapping` column maps CMM points to Camera points |
 
 **Scope note:** I designed this pipeline up to the SQL staging layer.
 A separate team handles the final ingestion handoff. The Power BI
@@ -787,7 +963,7 @@ dashboard layer (Section 11) is mine end-to-end.
 | 7 | Check Status | Compare each value against spec limits |
 | 8 | Raw Insert | Headers + raw measurements |
 | 9 | Calculate Stats (v2.0) | PPK, PP, UCL, LCL from last 125 samples |
-| 10 | Stats Insert (v2.0) | Insert to QC_GDT_Statistics + QC_XYZ_Statistics with lineage |
+| 10 | Stats Insert (v2.0) | Insert to spc_gdt_stats + spc_xyz_stats with lineage |
 | 11 | Verification (v2.0) | Count rows in all 7 tables; queue retry on failure |
 | 12 | Save Excel | Shift summary reports |
 | 13 | Log | Record to console and Excel log |
@@ -883,7 +1059,7 @@ Each line has its own DATA_MAP because Excel layouts vary by camera setup.
 
 | Method | Description |
 |--------|-------------|
-| `insert_headers_batch()` | Insert to QC_Inspection_Header |
+| `insert_headers_batch()` | Insert to spc_header |
 | `insert_gdt_batch()` | Insert GDT measurements + UCL/LCL |
 | `insert_xyz_batch()` | Insert XYZ measurements (with xyz_axis) |
 | `insert_xyz_ucl_lcl_batch()` | Insert XYZ control limits |
@@ -918,7 +1094,7 @@ parsing the string.
 
 ```mermaid
 flowchart LR
-    A[Get last 125 samples<br/>from QC_GDT_Data / QC_XYZ_Data] --> B[Calculate Mean & StdDev]
+    A[Get last 125 samples<br/>from spc_gdt / spc_xyz] --> B[Calculate Mean & StdDev]
     B --> C[Load Spec Limits<br/>by measurement_code + side]
     C --> D[Calculate PPU, PPL]
     D --> E[PPK = min PPU, PPL]
@@ -980,7 +1156,7 @@ flowchart TD
     START[Load Specs] --> CHECK{Excel Cache<br/>Exists?}
     CHECK -->|Yes| LOAD_EXCEL[Load from Excel<br/>~0.1 seconds]
     CHECK -->|No| TRY_SPARK{PySpark<br/>available?}
-    TRY_SPARK -->|Yes| SPARK[PySpark JDBC<br/>read QC_Specs]
+    TRY_SPARK -->|Yes| SPARK[PySpark JDBC<br/>read spc_specs]
     TRY_SPARK -->|No| ODBC[pyodbc fallback]
     SPARK -->|Success| SAVE[Save to Excel Cache]
     SPARK -->|Fail| ODBC
@@ -1031,7 +1207,7 @@ class SpecData:
 The system prevents duplicate processing by checking:
 
 1. **Local Excel Log** — `processed_files_log.xlsx`
-2. **SQL Database** — `QC_Inspection_Header.file_name`
+2. **SQL Database** — `spc_header.file_name`
 
 Files are not reprocessed even if multiple instances run on different PCs.
 
@@ -1121,11 +1297,11 @@ If statistics calculation fails for a run mid-cycle:
 After each run insert, the system counts rows in all 7 tables:
 
 ```
-[VERIFY] QC_Inspection_Header: 2 rows [OK]
-[VERIFY] QC_GDT_Data: 744 rows [OK]
-[VERIFY] QC_XYZ_Data: 1158 rows [OK]
-[VERIFY] QC_GDT_Statistics: 372 rows [OK]
-[VERIFY] QC_XYZ_Statistics: 579 rows [OK]
+[VERIFY] spc_header: 2 rows [OK]
+[VERIFY] spc_gdt: 744 rows [OK]
+[VERIFY] spc_xyz: 1158 rows [OK]
+[VERIFY] spc_gdt_stats: 372 rows [OK]
+[VERIFY] spc_xyz_stats: 579 rows [OK]
 [VERIFY] All tables OK for Line_01-23042026-...
 ```
 
@@ -1398,11 +1574,11 @@ Next scan in..... 10 seconds
 [INFO] Excel read completed (2.35s)
 [SQL] Insert: headers=2, GDT=550, XYZ=940, Total=1492
 [STATS] GDT=550, XYZ=940, PPK(GDT)=275, PPK(XYZ)=470
-[VERIFY] QC_Inspection_Header: 2 rows [OK]
-[VERIFY] QC_GDT_Data: 550 rows [OK]
-[VERIFY] QC_XYZ_Data: 940 rows [OK]
-[VERIFY] QC_GDT_Statistics: 275 rows [OK]
-[VERIFY] QC_XYZ_Statistics: 470 rows [OK]
+[VERIFY] spc_header: 2 rows [OK]
+[VERIFY] spc_gdt: 550 rows [OK]
+[VERIFY] spc_xyz: 940 rows [OK]
+[VERIFY] spc_gdt_stats: 275 rows [OK]
+[VERIFY] spc_xyz_stats: 470 rows [OK]
 [VERIFY] All tables OK for Line_R-26042026-...
 [FILE] Completed: Line_R_GCP_LINE_ABCD-5005-...-001.xlsx (5.2s)
 [INFO] Saved 1 new records to Excel files
@@ -1471,7 +1647,7 @@ Create these variables in your dashboard:
 **Variable: `$line`**
 ```sql
 SELECT DISTINCT production_line
-FROM QC_Inspection_Header
+FROM spc_header
 ORDER BY production_line
 ```
 
@@ -1481,7 +1657,7 @@ ORDER BY production_line
 ```sql
 -- For GDT:
 SELECT DISTINCT measurement_code
-FROM QC_GDT_Data
+FROM spc_gdt
 WHERE production_line = '$line'
 ORDER BY measurement_code
 ```
@@ -1494,21 +1670,21 @@ ORDER BY measurement_code
 
 ```sql
 SELECT log_date AS time, value, 'Value' AS metric
-FROM QC_GDT_Data
+FROM spc_gdt
 WHERE production_line = '$line'
   AND measurement_code = '$point'
   AND data_type = '$side'
   AND $__timeFilter(log_date)
 UNION ALL
 SELECT log_date, UCL, 'UCL'
-FROM QC_GDT_Statistics
+FROM spc_gdt_stats
 WHERE production_line = '$line'
   AND measurement_code = '$point'
   AND data_type = '$side'
   AND $__timeFilter(log_date)
 UNION ALL
 SELECT log_date, LCL, 'LCL'
-FROM QC_GDT_Statistics
+FROM spc_gdt_stats
 WHERE production_line = '$line'
   AND measurement_code = '$point'
   AND data_type = '$side'
@@ -1520,7 +1696,7 @@ ORDER BY time
 
 ```sql
 SELECT log_date AS time, PPK
-FROM QC_GDT_Statistics
+FROM spc_gdt_stats
 WHERE production_line = '$line'
   AND measurement_code = '$point'
   AND data_type = '$side'
@@ -1536,12 +1712,12 @@ SELECT
     PPK,
     ppk_status,
     sample_count
-FROM QC_GDT_Statistics s
+FROM spc_gdt_stats s
 WHERE production_line = '$line'
   AND data_type = '$side'
   AND calculated_at = (
       SELECT MAX(calculated_at)
-      FROM QC_GDT_Statistics
+      FROM spc_gdt_stats
       WHERE production_line = '$line'
         AND measurement_code = s.measurement_code
         AND data_type = s.data_type
@@ -1553,7 +1729,7 @@ ORDER BY PPK ASC
 
 ```sql
 SELECT measurement_code, COUNT(*) AS ng_count
-FROM QC_GDT_Data
+FROM spc_gdt
 WHERE production_line = '$line'
   AND quality_status = 'NG'
   AND data_type IN ('LH', 'RH')
@@ -1630,9 +1806,10 @@ It replaces the v1.0 single-page Power BI report.
 - **Gap visualization** — difference between Camera and CMM measurements over time
 - Visual check: do they trend together? Is the gap consistent?
 
-**Note:** Available only for **shared measurement points**. CMM-only points
-(extra accuracy points not measured by camera) appear on Pages 1-2 but are
-filtered out here.
+**Note:** Available only for **shared measurement points** — points where
+`cmm_specs.camera_mapping` is not NULL. CMM-only points (extra accuracy
+points not measured by camera) appear on Pages 1-2 but are filtered out
+on Pages 3-4.
 
 **User flow:** "Is camera saying the same thing as CMM for this point?" → quick yes/no answer.
 
@@ -1670,20 +1847,45 @@ This is the technical answer to the business question:
 2. Enter server: `xxx.xxx.xxx.xxx`
 3. Enter database: `spc_database`
 4. Select DirectQuery mode
-5. Select tables: `QC_Inspection_Header`, `QC_GDT_Data`, `QC_XYZ_Data`,
-   `QC_GDT_Statistics`, `QC_XYZ_Statistics`, `QC_Specs`
+5. Select tables (Camera + CMM + spec bridge):
+   - **Camera:** `spc_header`, `spc_gdt`, `spc_xyz`, `spc_gdt_stats`,
+     `spc_xyz_stats`, `spc_specs`
+   - **CMM:** `cmm_header`, `cmm_gdt`, `cmm_xyz`, `cmm_gdt_stats`,
+     `cmm_xyz_stats`, `cmm_specs` (with `camera_mapping` as the bridge
+     to `spc_specs.measurement_code`)
+
+**Correlation join pattern (used on Pages 3 & 4):**
+
+```sql
+-- Pages 3 & 4 base query
+SELECT
+    cs.measurement_code AS cmm_code,
+    cs.camera_mapping AS camera_code,
+    cd.value AS cmm_value,
+    sd.value AS camera_value,
+    cd.log_date AS cmm_date,
+    sd.log_date AS camera_date
+FROM cmm_specs cs
+INNER JOIN cmm_gdt cd
+    ON cd.measurement_code = cs.measurement_code
+INNER JOIN spc_gdt sd
+    ON sd.measurement_code = cs.camera_mapping
+WHERE cs.camera_mapping IS NOT NULL
+  AND cs.production_line = 'Line_R'
+  AND cs.is_active = 1
+```
 
 #### Key DAX Measures (v2.0)
 
-**1. Capable Points %**
+**1. Capable Points %** (Camera-side)
 ```dax
 Capable Pct =
 DIVIDE(
     CALCULATE(
-        DISTINCTCOUNT(QC_GDT_Statistics[measurement_code]),
-        QC_GDT_Statistics[ppk_status] IN {"Capable", "Capable (Low Sample)"}
+        DISTINCTCOUNT(spc_gdt_stats[measurement_code]),
+        spc_gdt_stats[ppk_status] IN {"Capable", "Capable (Low Sample)"}
     ),
-    DISTINCTCOUNT(QC_GDT_Statistics[measurement_code]),
+    DISTINCTCOUNT(spc_gdt_stats[measurement_code]),
     0
 )
 ```
@@ -1691,24 +1893,36 @@ DIVIDE(
 **2. Avg PPK**
 ```dax
 Avg PPK =
-AVERAGE(QC_GDT_Statistics[PPK])
+AVERAGE(spc_gdt_stats[PPK])
 ```
 
 **3. Latest PPK per Point**
 ```dax
 Latest PPK =
 CALCULATE(
-    LASTNONBLANK(QC_GDT_Statistics[PPK], 1),
-    LASTDATE(QC_GDT_Statistics[calculated_at])
+    LASTNONBLANK(spc_gdt_stats[PPK], 1),
+    LASTDATE(spc_gdt_stats[calculated_at])
 )
 ```
 
-**4. Camera vs CMM Gap**
+**4. Camera vs CMM Gap** (uses spec bridge)
 ```dax
 Camera CMM Gap =
-VAR CameraVal = CALCULATE(AVERAGE(QC_GDT_Data[value]), QC_GDT_Data[source] = "Camera")
-VAR CMMVal = CALCULATE(AVERAGE(QC_GDT_Data[value]), QC_GDT_Data[source] = "CMM")
+VAR CameraVal = CALCULATE(
+    AVERAGE(spc_gdt[value]),
+    USERELATIONSHIP(cmm_specs[camera_mapping], spc_gdt[measurement_code])
+)
+VAR CMMVal = AVERAGE(cmm_gdt[value])
 RETURN CameraVal - CMMVal
+```
+
+**5. Mapped Points Count** (how many CMM points have Camera equivalents)
+```dax
+Mapped Points =
+CALCULATE(
+    DISTINCTCOUNT(cmm_specs[measurement_code]),
+    NOT(ISBLANK(cmm_specs[camera_mapping]))
+)
 ```
 
 #### Report Distribution
@@ -1773,8 +1987,8 @@ SELECT
     h.temp_value,
     d.value,
     d.quality_status
-FROM QC_GDT_Data d
-JOIN QC_Inspection_Header h
+FROM spc_gdt d
+JOIN spc_header h
     ON d.run_number = h.run_number
 WHERE d.production_line = 'Line_01'
   AND d.measurement_code = 'Line_01_MTG_1_211'
@@ -1796,9 +2010,9 @@ SELECT
     d.value AS source_value,
     d.log_date AS source_log_date,
     h.file_name AS source_file
-FROM QC_GDT_Statistics s
-JOIN QC_GDT_Data d ON s.gdt_data_id = d.id
-JOIN QC_Inspection_Header h ON d.run_number = h.run_number
+FROM spc_gdt_stats s
+JOIN spc_gdt d ON s.gdt_data_id = d.id
+JOIN spc_header h ON d.run_number = h.run_number
 WHERE s.PPK < 1.0
   AND s.production_line = 'Line_01'
 ORDER BY s.calculated_at DESC
@@ -1807,10 +2021,10 @@ ORDER BY s.calculated_at DESC
 **3. Get all data for specific item:**
 
 ```sql
-SELECT * FROM QC_Inspection_Header
+SELECT * FROM spc_header
 WHERE run_number LIKE 'Line_01-23042026-ABC123DEF%'
 
-SELECT * FROM QC_GDT_Data
+SELECT * FROM spc_gdt
 WHERE run_number LIKE 'Line_01-23042026-ABC123DEF%'
 ORDER BY measurement_code
 ```
@@ -1882,7 +2096,7 @@ Line_NEW_DATA_MAP = {
 #### Step 3: Add Specifications to Database
 
 ```sql
-INSERT INTO QC_Specs
+INSERT INTO spc_specs
 (production_line, measurement_code, measurement_name, measurement_type,
  spec_min, spec_max, point_group, is_active, created_date)
 VALUES
@@ -1924,7 +2138,7 @@ nssm start SPC_Line_NEW
 - [ ] Update directory variable
 - [ ] Update filename pattern (if different)
 - [ ] Update DATA_MAP (if Excel structure differs)
-- [ ] Insert specs to QC_Specs table
+- [ ] Insert specs to spc_specs table
 - [ ] Add directory to .env
 - [ ] Test with sample Excel file
 - [ ] Verify all 7 tables populated (v2.0)
@@ -1987,18 +2201,18 @@ The universal database design means:
 
 #### Issue 4: PPK Shows NULL for All Points (v2.0)
 
-**Symptoms:** PPK/PP values are all NULL in `QC_GDT_Statistics`.
+**Symptoms:** PPK/PP values are all NULL in `spc_gdt_stats`.
 
 **Solutions:**
 1. Need at least 2 samples (MIN_SAMPLES_FOR_PPK = 2)
 2. Check if data is being inserted correctly
-3. Check spec limits in `QC_Specs` table
+3. Check spec limits in `spc_specs` table
 4. Check console for debug counters:
    ```
    [PPK] GDT: calculated=X, no_spec=Y, no_data=Z, std=0=W
    ```
 5. If `std=0` is high, all samples have the same value (genuinely NULL PPK)
-6. If `no_spec` is high, specs are missing from `QC_Specs` table
+6. If `no_spec` is high, specs are missing from `spc_specs` table
 
 ---
 
@@ -2008,7 +2222,7 @@ The universal database design means:
 
 **Solutions:**
 1. Check specs loaded correctly via console output
-2. Check `QC_Specs` table has specs for this line
+2. Check `spc_specs` table has specs for this line
 3. Delete spec cache and reload:
    ```bash
    del Line_xx_Log\Specs\Specs_Line_xx.xlsx
@@ -2045,7 +2259,7 @@ The universal database design means:
 **Symptoms:** OK items showing as NG, or NG showing as OK.
 
 **Solutions:**
-1. Check `QC_Specs` table values
+1. Check `spc_specs` table values
 2. Verify `point_group` (LH/RH) is correct
 3. Delete spec cache to reload from SQL:
    ```bash
@@ -2063,10 +2277,10 @@ The universal database design means:
 1. Check network connection to SQL Server
 2. Add indexes to database:
    ```sql
-   CREATE INDEX IX_GDT_Lookup ON QC_GDT_Data
+   CREATE INDEX IX_GDT_Lookup ON spc_gdt
    (production_line, measurement_code, data_type, log_date)
 
-   CREATE INDEX IX_GDT_Stats_Lookup ON QC_GDT_Statistics
+   CREATE INDEX IX_GDT_Stats_Lookup ON spc_gdt_stats
    (production_line, measurement_code, data_type, calculated_at)
    ```
 3. Check if `skip_zeros` is enabled
@@ -2089,12 +2303,12 @@ The universal database design means:
 
 #### Issue 11: Verification Says Tables MISSING (v2.0)
 
-**Symptoms:** `[VERIFY] QC_GDT_Statistics: 0 rows [MISSING]`
+**Symptoms:** `[VERIFY] spc_gdt_stats: 0 rows [MISSING]`
 
 **Solutions:**
 1. Check console for upstream errors during stats calculation
 2. Check if `MIN_SAMPLES_FOR_PPK` was met
-3. Check if specs exist in `QC_Specs`
+3. Check if specs exist in `spc_specs`
 4. Run will be added to retry queue automatically
 5. If retry also fails, check SQL connection stability
 
