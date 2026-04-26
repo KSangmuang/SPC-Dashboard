@@ -1,0 +1,255 @@
+# Changelog
+
+All notable changes to the SPC Real-Time Monitoring System.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project follows semantic versioning at a high level.
+
+---
+
+## [2.0] — 2026-04 — Camera vs CMM Correlation Release
+
+This release closes the loop on the original 2023 stakeholder requirement:
+**validating camera measurements against CMM**. v1.0 delivered centralization
+and real-time monitoring; v2.0 brings CMM data into the same database and
+builds the analytical layer to compare the two.
+
+### Added — Data Integration
+
+- **CMM data pipeline via Microsoft Power Platform**
+  - Power App form for worker submissions (irregular timing, mobile-friendly)
+  - Excel staging file for intermediate storage
+  - Power Automate flow for extract + transform
+  - SQL Gateway bridging cloud to on-prem SQL Server
+  - CMM data lands in the same `spc_database` as camera data, enabling joins
+  - Scope: I designed up to the SQL staging layer; final ingestion handoff
+    handled by a separate team
+
+### Added — Visualization
+
+- **4-page Power BI dashboard** (replaces v1.0 single-page report)
+  - Page 1: Daily PPK summary with donut chart + Pareto chart, line and
+    data-source filters
+  - Page 2: Drill-down line chart of XYZ contributions to GD&T, with
+    temperature overlay
+  - Page 3: Camera vs CMM gap analysis on shared measurement points
+  - Page 4: Camera vs CMM correlation scatter plot with trend line
+
+### Added — Database
+
+**Camera-side statistics tables:**
+- **`spc_gdt_stats`** table — full SPC snapshot with foreign key
+  (`gdt_data_id`) back to source measurement row in `spc_gdt`
+- **`spc_xyz_stats`** table — same design, FK `xyz_data_id` to `spc_xyz`
+- Both tables include: `window_size`, `sample_count`, `rolling_mean`,
+  `rolling_stdev`, `UCL`, `LCL`, `PPU`, `PPL`, `PPK`, `PP`, `ppk_status`,
+  `calculated_at`
+
+**CMM table set (mirror of Camera structure):**
+- **`cmm_header`** — CMM submission metadata (mirrors `spc_header`)
+- **`cmm_gdt`** — CMM GD&T measurements (mirrors `spc_gdt`)
+- **`cmm_xyz`** — CMM XYZ measurements (mirrors `spc_xyz`)
+- **`cmm_specs`** — CMM specs (mirrors `spc_specs` + `camera_mapping` column)
+- **`cmm_gdt_stats`** — CMM GDT statistics with lineage (mirrors `spc_gdt_stats`)
+- **`cmm_xyz_stats`** — CMM XYZ statistics with lineage (mirrors `spc_xyz_stats`)
+
+**Spec table column extensions (both `spc_specs` and `cmm_specs`):**
+- **`xyz_axis`** column on specs — `"X"`, `"Y"`, `"Z"` for XYZ points;
+  `"None"` for GD&T points (calculated values, no single axis)
+- **`gdt_xyz_link`** column — maps each GD&T point to the XYZ points used
+  to calculate it; enables drill-down from GD&T PPK to component XYZ
+  measurements
+
+**CMM-specific spec column:**
+- **`camera_mapping`** column on `cmm_specs` only — maps each CMM
+  measurement code to its equivalent Camera measurement code; this is
+  the join key for Camera vs CMM correlation queries (Pages 3 & 4)
+
+**Data table change:**
+- **`xyz_axis`** is now a dedicated column on `spc_xyz` / `cmm_xyz` /
+  `spc_xyz_stats` / `cmm_xyz_stats` (was a suffix in `data_type` in v1.0)
+
+### Added — Code
+
+- **`statistics_calculator.py`** module — replaces v1.0 `unified_ppk_calculator.py`
+  - Per-run calculation with `calculate_for_run()` entry point
+  - Rolling 125-sample window using `TOP() ORDER BY DESC` SQL pattern
+  - One-sided spec handling (PPU-only or PPL-only) — fixes v1 NULL bug
+  - PPK capability classification: Capable (≥1.33) / Marginal (≥1.00) /
+    Not Capable, with "(Low Sample)" suffix when n < 125
+  - Debug counters: `ppk_calculated`, `ppk_skipped_no_spec`,
+    `ppk_skipped_no_data`, `ppk_skipped_std_zero`
+  - Auto-creates statistics tables if they don't exist
+  - Duplicate-check via LIKE pattern on base run_number
+
+- **PySpark JDBC option in `spec_loader.py`**
+  - Primary path: PySpark JDBC for bulk spec read
+  - Automatic fallback: pyodbc if PySpark unavailable or fails
+  - Same Excel cache layer regardless of read path
+
+- **Auto-reconnect logic** in main scripts
+  - Health-check via `SELECT 1` before each cycle
+  - Up to 3 retry attempts with 10-second delay
+  - Fully closes dead connection before reconnecting
+  - 60-second backoff if all retries fail
+
+- **Statistics retry queue**
+  - Failed stats calculations are added to `stats_failed_runs[]`
+  - Retried at end of scan cycle
+  - Prevents losing PPK data when SQL has transient issues
+
+- **Post-insert verification** (`verify_sql_insert()`)
+  - Counts rows in all 7 tables for each run
+  - Flags MISSING tables for visibility into partial failures
+  - Logs OK / MISSING per table
+
+- **Line_R production line support**
+  - Different Excel layout: 275 GDT rows, 470 XYZ rows
+  - Different filename pattern
+  - Different cell mappings for status, temperature, model
+
+- **UTF-8 console reconfiguration** for Windows
+  - `sys.stdout.reconfigure(encoding='utf-8', errors='replace')`
+  - Fixes UnicodeEncodeError on Windows console
+
+### Changed
+
+- `xyz_axis` is no longer encoded in `data_type` string
+  - v1: `data_type = "LH X" / "LH Y" / "LH Z" / "RH X" / ...`
+  - v2: `data_type = "LH" / "RH"`, `xyz_axis = "X" / "Y" / "Z" / "N"`
+- Spec dictionary lookup uses composite key `{measurement_code}_{side}`
+- Blank `point_group` in `spc_specs` now creates shared LH/RH specs (was
+  ambiguous in v1.0)
+- Statistics calculation moved from per-cycle batch to per-run immediate
+  - Faster reflection in dashboards
+  - Each run gets its own statistics snapshot with lineage
+
+### Fixed
+
+- **PPK = NULL when one spec limit was zero**
+  - Root cause: v1 only calculated PPK when both `spec_min` and `spec_max`
+    were non-NULL
+  - Fix: handle one-sided specs (e.g., flatness with `spec_min = 0`)
+  - PP also fixed to handle one-sided correctly
+- **Statistics lost on database connection drops mid-cycle**
+  - Now caught and retried at end of cycle
+- **Silent partial inserts**
+  - When one of 5 (now 7) tables silently failed, no detection in v1
+  - v2 verification catches and logs this
+- **Duplicate statistics calculation**
+  - LIKE pattern on `run_number_base` prevents double-insert when stats
+    are recalculated
+
+### Internal Notes
+
+- Database schema is **backward compatible** — all v1 tables unchanged;
+  spec column additions (`xyz_axis`, `gdt_xyz_link`) are nullable
+- v1.0 main scripts can run against v2.0 database without modification
+- v2.0 main scripts read v1.0 historical data correctly
+- Migration: drop v1's `unified_ppk_calculator.py`, deploy v2's
+  `statistics_calculator.py`, restart services per line
+- New CMM tables can be created independently — they don't affect any
+  Camera-side code
+
+### Architecture Decisions Recorded (v2.0)
+
+- **Mirror tables for CMM, not merged tables** — chose `cmm_*` tables that
+  parallel `spc_*` tables instead of a shared schema with a `data_source`
+  discriminator column. Reasons: different volumes (per-product vs sampled),
+  different ingestion paths (Python file watcher vs Power Platform),
+  different point counts (CMM has extra accuracy points), and clean
+  failure isolation.
+- **Spec table as bridge layer** — chose to put the CMM-to-Camera mapping
+  on `cmm_specs.camera_mapping` rather than a separate junction table.
+  This keeps the mapping versionable with `is_active`, queryable as a
+  lookup dimension, and avoids extra joins in correlation queries.
+- **`xyz_axis` extended to spec tables** — chose to denormalize this
+  attribute onto specs (with `"None"` for GD&T) so axis-based filters
+  can run against specs alone without joining to data tables.
+- **`gdt_xyz_link` for traceability** — chose to record GD&T → XYZ
+  relationships explicitly in specs rather than parsing measurement codes
+  at query time. This makes Page 2 drill-down queries simple and fast.
+- **Power Platform for CMM ingestion** — chose Power App + Power Automate
+  + SQL Gateway over a Python script because the data source is human
+  worker submission on irregular timing. Workers need a form, not a
+  script trigger.
+- **Per-run statistics calculation** (vs v1's per-batch) — chose
+  immediate calculation per run for fresher dashboard data and simpler
+  retry semantics.
+
+---
+
+## [1.0] — 2025-12 — Initial Production Release
+
+The first production release. Solved the centralization and real-time
+monitoring requirements from the 2023 stakeholder ask.
+
+### Added
+
+- **Excel-to-SQL ETL pipeline** for camera inspection data
+  - Auto-scan source folder, regex filename validation
+  - Read GD&T sheet (LH + RH columns)
+  - Read XYZ data sheet (LH + RH columns)
+  - Read metadata sheet (temperature, model type, status)
+  - Two-phase insert: raw measurements + SPC snapshot
+
+- **5 universal database tables**
+  - `spc_header` — file metadata, run number, status
+  - `spc_gdt` — GD&T measurements + UCL/LCL records
+  - `spc_xyz` — XYZ coordinate measurements + UCL/LCL records
+  - `spc_ppk` — PPK/PP calculation results (legacy)
+  - `spc_specs` — specification limits per line per point
+
+- **PPK / PP / UCL / LCL calculation engine** (`unified_ppk_calculator.py`)
+  - Rolling 125-sample window
+  - Two-sided spec calculations
+  - UCL / LCL clamping to spec limits for display
+
+- **Spec loading with Excel cache** (`spec_loader.py`)
+  - First load: query SQL `spc_specs` table via pyodbc
+  - Save to Excel cache for fast subsequent loads
+  - Manual refresh by deleting cache file
+
+- **Multi-line support**
+  - Universal schema (`production_line` column separates lines)
+  - Per-line main script with line-specific DATA_MAP
+  - Initially supported: Line_01, Line_02
+
+- **Visualization integrations**
+  - Grafana dashboards for real-time SPC monitoring
+  - Power BI report for weekly/monthly quality analysis
+
+- **Reliability features**
+  - Duplicate detection across local log + SQL
+  - ODBC driver auto-detection (4 fallback drivers)
+  - Shift-based Excel summary reports
+  - Activity logging to console + Excel
+
+- **Quality status logic**
+  - OK / NG / N/A based on spec_min ≤ value ≤ spec_max comparison
+  - File-level FG/NG aggregation
+
+### Architecture Decisions Recorded
+
+- **Universal tables over per-line tables** — chose `production_line`
+  column approach for simpler dashboard queries and adding new lines
+  without schema changes
+- **pyodbc with executemany** — chose over SQLAlchemy ORM for raw
+  insert performance on high-frequency data
+- **Excel cache for specs** — chose over always-query SQL because specs
+  change rarely and cache cuts startup time from ~2s to ~0.1s
+- **Two-phase insert** — chose to separate raw data insert from SPC
+  calculation so file processing doesn't block on PPK math
+
+---
+
+## How to Read This Changelog
+
+- **Added** — new features, capabilities, tables, or modules
+- **Changed** — modifications to existing behavior (may affect downstream
+  consumers like dashboards or queries)
+- **Fixed** — bug fixes
+- **Internal Notes** — migration guidance, compatibility notes, scope
+  clarifications
+
+For deeper context on any release, see [README.md](README.md).
