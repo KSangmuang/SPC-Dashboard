@@ -2,32 +2,48 @@
 
 Quality data collection and analysis system for production lines.
 
+**Current Version: v2.0** — Camera vs CMM Correlation Release
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
 ---
 
-> ⚠️ **NOTICE: Documentation Only**
-> 
-> This repository contains documentation and architecture explanation only.
-> All data (IP addresses, database names, credentials, file paths) are **examples only** for demonstration purposes.
-> 
-> **Source code is proprietary and not included in this repository.**
+> ⚠️ **NOTICE: Portfolio Case Study**
+>
+> This repository is a **portfolio case study** documenting the architecture
+> and design decisions of a real SPC system I built and maintained.
+>
+> The repository contains:
+> - Architecture diagrams
+> - Database design and schema concepts
+> - Technology choices and rationale
+> - Project evolution from v1.0 to v2.0
+> - Visualization design (Grafana + Power BI)
+>
+> The repository does **not** contain:
+> - Source code (proprietary, retained by the client)
+> - Real credentials, IP addresses, or connection strings
+> - Identifying details about the client or their products
+>
+> All names, IDs, and identifiers in this document are generic placeholders.
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [System Architecture](#2-system-architecture)
-3. [Database Design](#3-database-design)
-4. [Data Flow](#4-data-flow)
-5. [Code Structure](#5-code-structure)
-6. [Key Features](#6-key-features)
-7. [Installation](#7-installation)
-8. [Configuration](#8-configuration)
-9. [Usage](#9-usage)
-10. [Visualization](#10-visualization)
-11. [Traceability](#11-traceability)
-12. [Adding New Production Line](#12-adding-new-production-line)
-13. [Troubleshooting](#13-troubleshooting)
+2. [Version History](#2-version-history)
+3. [System Architecture](#3-system-architecture)
+4. [Database Design](#4-database-design)
+5. [Data Flow](#5-data-flow)
+6. [Code Structure](#6-code-structure)
+7. [Key Features](#7-key-features)
+8. [Installation](#8-installation)
+9. [Configuration](#9-configuration)
+10. [Usage](#10-usage)
+11. [Visualization](#11-visualization)
+12. [Traceability](#12-traceability)
+13. [Adding New Production Line](#13-adding-new-production-line)
+14. [Troubleshooting](#14-troubleshooting)
 
 ---
 
@@ -35,7 +51,9 @@ Quality data collection and analysis system for production lines.
 
 ### Project Background
 
-This project is a continuation and digital transformation of a quality inspection system originally set up by Japanese engineers during the production line installation.
+This project is a continuation and digital transformation of a quality
+inspection system originally set up by Japanese engineers during the
+production line installation.
 
 #### The Original Setup
 
@@ -50,16 +68,16 @@ flowchart LR
     subgraph INSPECTION["📷 Camera Inspection"]
         CAM[Camera Station<br/>Depth Detection by Color]
     end
-    
+
     subgraph CONTROL["⚡ Control System"]
         PLC[PLC<br/>Mitsubishi]
         PC[PC with MX Sheet<br/>Auto Export]
     end
-    
+
     subgraph OUTPUT["📄 Output"]
         EXCEL[Excel Files<br/>Manual Review]
     end
-    
+
     CAM -->|Measurement Data| PLC
     PLC -->|MX Sheet Link| PC
     PC -->|Auto Export| EXCEL
@@ -101,120 +119,38 @@ flowchart TB
         PLC[⚡ PLC]
         MX[💻 MX Sheet]
         EXCEL[📄 Excel File]
-        
+
         CAM --> PLC
         PLC --> MX
         MX --> EXCEL
     end
-    
+
     subgraph NEW["✨ NEW DIGITAL LAYER (This Project)"]
         subgraph PROCESS["⚙️ Python Processing"]
             COLLECTOR[🐍 Python Collector<br/>Auto-detect new files]
-            PPK_CALC[📊 PPK Calculator]
+            STATS[📊 Statistics Calculator]
             SPEC[📋 Spec Loader]
         end
-        
+
         subgraph DATABASE["🗄️ SQL Server"]
-            DB[(WA_SPC<br/>Database)]
+            DB[(spc_database)]
         end
-        
+
         subgraph VISUAL["📈 Visualization"]
             GRAFANA[Grafana<br/>Real-time SPC]
             POWERBI[Power BI<br/>Analysis & Reports]
         end
     end
-    
+
     EXCEL -->|Auto Collect| COLLECTOR
-    COLLECTOR --> PPK_CALC
+    COLLECTOR --> STATS
     COLLECTOR --> SPEC
-    PPK_CALC --> DB
+    STATS --> DB
     SPEC --> DB
     COLLECTOR --> DB
     DB --> GRAFANA
     DB --> POWERBI
 ```
-
-#### Project Evolution
-
-```mermaid
-flowchart LR
-    subgraph P1["Phase 1"]
-        A1[📥 Excel → SQL<br/>Basic data collection]
-    end
-    
-    subgraph P2["Phase 2"]
-        A2[📊 PPK/PP Engine<br/>Statistical metrics]
-    end
-    
-    subgraph P3["Phase 3"]
-        A3[📈 Grafana<br/>Real-time charts]
-    end
-    
-    subgraph P4["Phase 4"]
-        A4[📋 Power BI<br/>Management reports]
-    end
-    
-    subgraph P5["Phase 5"]
-        A5[📏 UCL/LCL<br/>Control limits]
-    end
-    
-    subgraph P6["Phase 6"]
-        A6[🏭 Multi-line<br/>Universal database]
-    end
-    
-    P1 --> P2 --> P3 --> P4 --> P5 --> P6
-```
-
-| Phase | What I Built | Outcome |
-|-------|--------------|---------|
-| **Phase 1** | Python script to read Excel → Insert to SQL | Data centralized in database |
-| **Phase 2** | Added PPK/PP calculation engine | Statistical process control metrics |
-| **Phase 3** | Connected Grafana for visualization | Real-time SPC charts at shopfloor |
-| **Phase 4** | Built Power BI reports | Weekly/monthly analysis for management |
-| **Phase 5** | Added UCL/LCL calculation | Control limits for process monitoring |
-| **Phase 6** | Multi-line support | Universal database for all production lines |
-
-#### Why Camera Inspection Data Matters
-
-The camera inspection system is unique:
-
-```mermaid
-flowchart LR
-    subgraph CAMERA["📷 Camera Inspection"]
-        C1[Take Picture]
-        C2[Color = Depth<br/>Analysis]
-        C3[Generate<br/>Measurements]
-    end
-    
-    subgraph COMPARE["🔄 Correlation"]
-        CMM[CMM Data<br/>Reference]
-        VALIDATE[Validate<br/>Accuracy]
-    end
-    
-    subgraph ACTION["🎯 Action"]
-        ADJUST[Adjust Production<br/>Parameters]
-        PREDICT[Predict Quality<br/>Issues]
-    end
-    
-    C1 --> C2 --> C3
-    C3 --> VALIDATE
-    CMM --> VALIDATE
-    VALIDATE --> ADJUST
-    VALIDATE --> PREDICT
-```
-
-- **Depth Detection by Color**: Cameras capture surface images where color variations indicate depth differences
-- **Non-contact Measurement**: Unlike CMM probes, cameras measure without touching the part
-- **High Speed**: Can inspect many points simultaneously
-- **Correlation with CMM**: Data must be comparable to CMM results for validation
-
-By digitizing this data, we can:
-- **Compare camera vs CMM results** to validate camera accuracy
-- **Identify systematic errors** in camera measurements
-- **Adjust production parameters** based on trend analysis
-- **Predict quality issues** before they become critical
-
----
 
 ### What This System Does
 
@@ -227,7 +163,7 @@ By digitizing this data, we can:
 * Stores all data in SQL Server database
 * Generates Excel summary reports by shift
 * Displays real-time SPC charts on Grafana
-* Provides data for Power BI reports and CMM correlation analysis
+* Provides data for Power BI reports and CMM correlation analysis (v2.0)
 
 ### Who Uses This System
 
@@ -241,60 +177,208 @@ By digitizing this data, we can:
 
 | Item | Value |
 |------|-------|
-| GD&T measurement points | 372 per side (LH/RH) |
-| XYZ measurement points | 579 per side (LH/RH) |
-| Samples for PPK calculation | Last 125 items |
-| SQL tables | 5 universal tables |
-| Data per inspection | ~3,400 rows |
+| GD&T measurement points | Up to 372 per side (LH/RH), varies by line |
+| XYZ measurement points | Up to 579 per side (LH/RH), varies by line |
+| Samples for PPK calculation | Last 125 items (rolling window) |
+| SQL tables | 7 universal tables (5 core + 2 statistics, v2.0) |
+| Production lines supported | 4 (Line_01, Line_02, Line_03, Line_R) |
 
-## 2. System Architecture
+---
 
-### System Flow Diagram
+## 2. Version History
+
+### v2.0 — Camera vs CMM Correlation Release (2026-04)
+
+v2.0 closes the loop on the original stakeholder requirement: validating
+camera measurements against CMM. v1.0 delivered centralization and real-time
+monitoring; v2.0 brings CMM data into the same database and builds the
+analytical layer to compare the two.
+
+**Major additions:**
+- 🆕 **CMM data integration** via Microsoft Power Platform
+  (Power App → Power Automate → SQL Gateway → on-prem SQL)
+- 🆕 **4-page Power BI dashboard** for structured Camera vs CMM analysis
+- 🆕 **Two new statistics tables** (`QC_GDT_Statistics`, `QC_XYZ_Statistics`)
+  with full lineage to source data
+- 🆕 **PPK capability classification**: Capable / Marginal / Not Capable
+- 🆕 **Auto-reconnect logic** with 3-retry mechanism
+- 🆕 **Statistics retry queue** — failed calculations retry at end-of-cycle
+- 🆕 **Post-insert verification** across all tables
+- 🆕 **PySpark JDBC** integration in spec loader (with pyodbc fallback)
+- 🆕 **Line_R production line** support (different Excel layout)
+- 🆕 One-sided spec handling for PPK (PPU-only or PPL-only)
+- 🆕 `xyz_axis` as dedicated column (was suffix in `data_type`)
+
+**Fixed:**
+- PPK = NULL when one spec limit was zero
+- Statistics lost on database connection drops mid-cycle
+- Silent partial inserts when one table failed
+
+### v1.0 — Initial Production Release (2025-12)
+
+- Excel-to-SQL ETL pipeline for camera inspection data
+- 5 universal tables (header, GDT, XYZ, PPK/PP, Specs)
+- PPK/PP/UCL/LCL calculation engine
+- Two-phase insert (raw + SPC snapshot)
+- Spec loading with Excel cache
+- Grafana real-time SPC integration
+- Power BI weekly/monthly reports
+- Multi-line support (Line_01, Line_02)
+
+### Project Evolution Phases
+
+```mermaid
+flowchart LR
+    subgraph P1["Phase 1"]
+        A1[📥 Excel → SQL<br/>Basic data collection]
+    end
+
+    subgraph P2["Phase 2"]
+        A2[📊 PPK/PP Engine<br/>Statistical metrics]
+    end
+
+    subgraph P3["Phase 3"]
+        A3[📈 Grafana<br/>Real-time charts]
+    end
+
+    subgraph P4["Phase 4"]
+        A4[📋 Power BI<br/>Management reports]
+    end
+
+    subgraph P5["Phase 5"]
+        A5[📏 UCL/LCL<br/>Control limits]
+    end
+
+    subgraph P6["Phase 6"]
+        A6[🏭 Multi-line<br/>Universal database]
+    end
+
+    subgraph P7["Phase 7 - v2.0"]
+        A7[🔬 CMM Correlation<br/>+ Statistics tables<br/>+ Reliability hardening]
+    end
+
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
+```
+
+| Phase | What I Built | Outcome |
+|-------|--------------|---------|
+| **Phase 1** | Python script to read Excel → Insert to SQL | Data centralized in database |
+| **Phase 2** | Added PPK/PP calculation engine | Statistical process control metrics |
+| **Phase 3** | Connected Grafana for visualization | Real-time SPC charts at shopfloor |
+| **Phase 4** | Built Power BI reports | Weekly/monthly analysis for management |
+| **Phase 5** | Added UCL/LCL calculation | Control limits for process monitoring |
+| **Phase 6** | Multi-line support | Universal database for all production lines |
+| **Phase 7 (v2.0)** | CMM integration + statistics tables + reliability | Closed the loop on camera vs CMM correlation |
+
+#### Why Camera Inspection Data Matters
+
+The camera inspection system is unique:
+
+```mermaid
+flowchart LR
+    subgraph CAMERA["📷 Camera Inspection"]
+        C1[Take Picture]
+        C2[Color = Depth<br/>Analysis]
+        C3[Generate<br/>Measurements]
+    end
+
+    subgraph COMPARE["🔄 Correlation"]
+        CMM[CMM Data<br/>Reference]
+        VALIDATE[Validate<br/>Accuracy]
+    end
+
+    subgraph ACTION["🎯 Action"]
+        ADJUST[Adjust Production<br/>Parameters]
+        PREDICT[Predict Quality<br/>Issues]
+    end
+
+    C1 --> C2 --> C3
+    C3 --> VALIDATE
+    CMM --> VALIDATE
+    VALIDATE --> ADJUST
+    VALIDATE --> PREDICT
+```
+
+- **Depth Detection by Color**: Cameras capture surface images where color variations indicate depth differences
+- **Non-contact Measurement**: Unlike CMM probes, cameras measure without touching the part
+- **High Speed**: Can inspect many points simultaneously
+- **Correlation with CMM**: Data must be comparable to CMM results for validation
+
+By digitizing both data sources (v2.0), we can:
+- **Compare camera vs CMM results** statistically (correlation + gap analysis)
+- **Identify systematic errors** in camera measurements
+- **Adjust production parameters** based on trend analysis
+- **Reduce CMM bottleneck** by trusting camera on well-correlated points
+- **Detect calibration drift** when camera-CMM correlation breaks down
+
+---
+
+## 3. System Architecture
+
+### System Flow Diagram (v2.0)
 
 ```mermaid
 flowchart TB
-    subgraph INPUT["📥 Input"]
-        CMM[CMM Machine]
-        EXCEL[Excel Files<br/>1 file = 1 product]
+    subgraph INPUT["📥 Input Sources"]
+        CMM_MACHINE[CMM Machine]
+        EXCEL[Camera Excel Files<br/>1 file = 1 product]
+        WORKER[👷 CMM Worker]
     end
-    
-    subgraph PROCESS["⚙️ Processing - Windows Service"]
-        MAIN[MainSCPProduction1L1.py<br/>Main Orchestrator]
+
+    subgraph CMM_PIPELINE["🆕 v2.0: CMM Power Platform Pipeline"]
+        APP[Power App Form]
+        STAGING[Excel Staging]
+        AUTO[Power Automate]
+        GATEWAY[SQL Gateway]
+    end
+
+    subgraph PROCESS["⚙️ Camera Processing - Windows Service"]
+        MAIN[Main Script per Line<br/>Orchestrator]
         SPEC[spec_loader.py<br/>Load Specifications]
-        PPK[unified_ppk_calculator.py<br/>Calculate PPK/PP/UCL/LCL]
+        STATS[statistics_calculator.py<br/>v2.0 PPK/PP/UCL/LCL]
         QC[unified_qc_insert.py<br/>Database Operations]
         LOG[SPCLogger.py<br/>Logging System]
     end
-    
-    subgraph DATABASE["🗄️ SQL Server Database"]
-        DB[(WA_SPC)]
+
+    subgraph DATABASE["🗄️ SQL Server: spc_database"]
+        DB[(All Tables)]
         HEADER[QC_Inspection_Header]
         GDT[QC_GDT_Data]
         XYZ[QC_XYZ_Data]
         PPKDB[QC_PPK_PP_Data]
         SPECS[QC_Specs]
+        GDT_STATS[🆕 QC_GDT_Statistics]
+        XYZ_STATS[🆕 QC_XYZ_Statistics]
     end
-    
+
     subgraph OUTPUT["📊 Output"]
         GRAFANA[Grafana<br/>Real-time SPC Charts]
-        POWERBI[Power BI<br/>Weekly/Monthly Reports]
+        POWERBI[🆕 4-Page Power BI<br/>CMM vs Camera]
         EXCELO[Excel Reports<br/>Shift Summaries]
     end
-    
-    CMM --> EXCEL
+
+    CMM_MACHINE --> WORKER
+    WORKER --> APP
+    APP --> STAGING
+    STAGING --> AUTO
+    AUTO --> GATEWAY
+    GATEWAY --> DB
+
     EXCEL --> MAIN
     MAIN --> SPEC
-    MAIN --> PPK
+    MAIN --> STATS
     MAIN --> QC
     MAIN --> LOG
     SPEC --> DB
-    PPK --> DB
+    STATS --> DB
     QC --> DB
     DB --> HEADER
     DB --> GDT
     DB --> XYZ
     DB --> PPKDB
     DB --> SPECS
+    DB --> GDT_STATS
+    DB --> XYZ_STATS
     DB --> GRAFANA
     DB --> POWERBI
     MAIN --> EXCELO
@@ -305,39 +389,52 @@ flowchart TB
 The system runs as a **Windows Service** on a PC at the shopfloor. It automatically:
 
 1. **Scans** for new Excel files from CMM machine output folder
-2. **Reads** GD&T data (372 points) and XYZ data (579 points)
+2. **Reads** GD&T data and XYZ data
 3. **Loads** specification limits from SQL (with Excel caching for speed)
 4. **Checks** quality status (OK/NG) for each measurement
-5. **Calculates** PPK, PP, UCL, LCL using last 125 samples
-6. **Inserts** all data to SQL database in two phases
-7. **Generates** shift summary Excel reports
-8. **Logs** all activities to console and Excel
+5. **Calculates** PPK, PP, UCL, LCL using last 125 samples (rolling window)
+6. **Inserts** all data to SQL database
+7. **Verifies** all 7 tables received data correctly (v2.0)
+8. **Generates** shift summary Excel reports
+9. **Logs** all activities to console and Excel
 
-### Processing Phases
+In parallel (v2.0), the **CMM data pipeline** runs on Microsoft Power Platform:
 
-The system uses a **two-phase insert** for better performance:
+1. **Worker submits** CMM inspection results via Power App
+2. **Excel staging** holds the submission
+3. **Power Automate** extracts and transforms the data
+4. **SQL Gateway** writes to the same on-prem database
+5. **Power BI** reads from SQL for the 4-page correlation dashboard
 
-| Phase | What Gets Inserted | When |
-|-------|-------------------|------|
-| Phase 1 | Headers + Raw measurements (GDT, XYZ) | Per file |
-| Phase 2 | SPC snapshot (PPK, PP, UCL, LCL) | After batch |
+### Insert Strategy (v2.0)
 
-This approach calculates SPC values once per cycle instead of per file.
+| Step | What Gets Inserted | When |
+|------|-------------------|------|
+| 1 | Headers + Raw measurements (GDT, XYZ) | Per file |
+| 2 | Statistics (PPK, PP, UCL, LCL with lineage) | Per run, immediately after raw insert |
+| 3 | Verification check across all tables | After step 2 |
+
+If statistics fail mid-cycle, the run is added to a **retry queue** and
+re-attempted at the end of the scan cycle (v2.0 reliability feature).
 
 ---
 
-## 3. Database Design
+## 4. Database Design
 
-### Database Schema
+### Database Schema (v2.0)
 
 ```mermaid
 erDiagram
     QC_Inspection_Header ||--o{ QC_GDT_Data : "run_number"
     QC_Inspection_Header ||--o{ QC_XYZ_Data : "run_number"
     QC_Inspection_Header ||--o{ QC_PPK_PP_Data : "run_number"
+    QC_Inspection_Header ||--o{ QC_GDT_Statistics : "run_number"
+    QC_Inspection_Header ||--o{ QC_XYZ_Statistics : "run_number"
+    QC_GDT_Data ||--o| QC_GDT_Statistics : "gdt_data_id (lineage)"
+    QC_XYZ_Data ||--o| QC_XYZ_Statistics : "xyz_data_id (lineage)"
     QC_Specs ||--o{ QC_GDT_Data : "measurement_code"
     QC_Specs ||--o{ QC_XYZ_Data : "measurement_code"
-    
+
     QC_Inspection_Header {
         int inspection_id PK
         varchar production_line
@@ -349,7 +446,7 @@ erDiagram
         float temp_value
         datetime created_date
     }
-    
+
     QC_GDT_Data {
         int id PK
         varchar production_line
@@ -361,7 +458,7 @@ erDiagram
         varchar quality_status
         datetime created_date
     }
-    
+
     QC_XYZ_Data {
         int id PK
         varchar production_line
@@ -374,7 +471,7 @@ erDiagram
         varchar xyz_axis
         datetime created_date
     }
-    
+
     QC_PPK_PP_Data {
         int id PK
         varchar production_line
@@ -386,7 +483,60 @@ erDiagram
         float value
         datetime created_date
     }
-    
+
+    QC_GDT_Statistics {
+        int stat_id PK
+        varchar production_line
+        varchar run_number FK
+        datetime log_date
+        varchar data_type
+        varchar measurement_code
+        int gdt_data_id
+        float value
+        varchar quality_status
+        float USL
+        float LSL
+        int window_size
+        int sample_count
+        float rolling_mean
+        float rolling_stdev
+        float UCL
+        float LCL
+        float PPU
+        float PPL
+        float PPK
+        float PP
+        varchar ppk_status
+        datetime calculated_at
+    }
+
+    QC_XYZ_Statistics {
+        int stat_id PK
+        varchar production_line
+        varchar run_number FK
+        datetime log_date
+        varchar data_type
+        varchar measurement_code
+        varchar xyz_axis
+        int xyz_data_id
+        float value
+        varchar quality_status
+        float USL
+        float LSL
+        int window_size
+        int sample_count
+        float rolling_mean
+        float rolling_stdev
+        float UCL
+        float LCL
+        float PPU
+        float PPL
+        float PPK
+        float PP
+        varchar ppk_status
+        datetime calculated_at
+    }
+
     QC_Specs {
         int spec_id PK
         varchar production_line
@@ -403,19 +553,37 @@ erDiagram
 
 ### Universal Table Design
 
-We use **5 universal tables** for ALL production lines. Each table has `production_line` column to separate data.
+We use **7 universal tables** for ALL production lines. Each table has
+`production_line` column to separate data.
 
-| Table | Purpose | Rows per Inspection |
-|-------|---------|---------------------|
-| `QC_Inspection_Header` | File metadata, status | 2 (LH + RH) |
-| `QC_GDT_Data` | GD&T measurements + UCL/LCL | ~2,976 |
-| `QC_XYZ_Data` | XYZ coordinates + UCL/LCL | ~4,632 |
-| `QC_PPK_PP_Data` | PPK/PP calculation results | ~3,804 |
-| `QC_Specs` | Specification limits | Reference table |
+| Table | Purpose | Version |
+|-------|---------|---------|
+| `QC_Inspection_Header` | File metadata, status | v1.0 |
+| `QC_GDT_Data` | GD&T measurements + UCL/LCL | v1.0 |
+| `QC_XYZ_Data` | XYZ coordinates + UCL/LCL | v1.0 |
+| `QC_PPK_PP_Data` | PPK/PP calculation results (legacy) | v1.0 |
+| `QC_Specs` | Specification limits | v1.0 |
+| 🆕 `QC_GDT_Statistics` | GDT stats with full lineage to source row | v2.0 |
+| 🆕 `QC_XYZ_Statistics` | XYZ stats with full lineage to source row | v2.0 |
+
+### Why Two Statistics Tables (v2.0)?
+
+The v1.0 `QC_PPK_PP_Data` table stored PPK/PP as flat values without
+lineage — you couldn't trace which source measurements produced any PPK.
+
+The v2.0 statistics tables fix this:
+- **Foreign key** to source data row (`gdt_data_id` / `xyz_data_id`)
+- **Window context** stored (`window_size`, `sample_count`)
+- **Full SPC snapshot** (rolling_mean, rolling_stdev, UCL, LCL, PPU, PPL, PPK, PP)
+- **Capability classification** (`ppk_status`: Capable / Marginal / Not Capable)
+- **Audit trail** (`calculated_at` timestamp)
+
+You can answer: *"Which 125 samples produced this PPK value, and when was it calculated?"*
 
 ### Data Types in Tables
 
 **QC_GDT_Data.data_type:**
+
 | Value | Description |
 |-------|-------------|
 | LH | Left-hand measurement value |
@@ -426,6 +594,7 @@ We use **5 universal tables** for ALL production lines. Each table has `producti
 | RH LCL | Right-hand Lower Control Limit |
 
 **QC_XYZ_Data.data_type:**
+
 | Value | Description |
 |-------|-------------|
 | LH | Left-hand measurement (xyz_axis = X, Y, or Z) |
@@ -435,13 +604,23 @@ We use **5 universal tables** for ALL production lines. Each table has `producti
 | RH UCL | Right-hand Upper Control Limit |
 | RH LCL | Right-hand Lower Control Limit |
 
-**QC_XYZ_Data.xyz_axis:**
+**QC_XYZ_Data.xyz_axis** (v2.0 dedicated column, was suffix in v1.0):
+
 | Value | Description |
 |-------|-------------|
 | X | X-axis coordinate |
 | Y | Y-axis coordinate |
 | Z | Z-axis coordinate |
 | N | Nominal/other (no axis suffix in code) |
+
+**QC_GDT_Statistics.ppk_status / QC_XYZ_Statistics.ppk_status (v2.0):**
+
+| Value | Meaning | Threshold |
+|-------|---------|-----------|
+| Capable | Process is performing well | PPK ≥ 1.33 |
+| Marginal | Process is borderline | 1.00 ≤ PPK < 1.33 |
+| Not Capable | Process needs attention | PPK < 1.00 |
+| *(suffix)* `(Low Sample)` | Sample count below 125 | n < 125 |
 
 ### Quality Status Logic
 
@@ -457,13 +636,12 @@ IF spec_min = 0 AND spec_max = 0 THEN status = "N/A" (no spec defined)
 
 - ✅ One set of tables for ALL lines
 - ✅ Easy to compare data across lines
-- ✅ Add new line = just add data with new `production_line` value
+- ✅ Add new line = just insert with new `production_line` value
 - ✅ No need to create new tables for new line
 - ✅ Grafana/Power BI queries work automatically
+- ✅ CMM data goes into the same tables (v2.0)
 
----
-
-## Data Volumes
+### Data Volumes
 
 Estimated data growth per day (assuming 100 inspections/day):
 
@@ -473,186 +651,233 @@ Estimated data growth per day (assuming 100 inspections/day):
 | QC_GDT_Data | ~2,976 | ~297,600 | ~8,928,000 |
 | QC_XYZ_Data | ~4,632 | ~463,200 | ~13,896,000 |
 | QC_PPK_PP_Data | ~3,804 | ~380,400 | ~11,412,000 |
-| **Total** | **~11,414** | **~1,141,400** | **~34,242,000** |
+| 🆕 QC_GDT_Statistics | ~744 | ~74,400 | ~2,232,000 |
+| 🆕 QC_XYZ_Statistics | ~1,158 | ~115,800 | ~3,474,000 |
+| **Total** | **~13,316** | **~1,331,600** | **~39,948,000** |
 
-**Note:** Database grows approximately 500MB-1GB per month per production line. Plan disk space accordingly.
+**Note:** Database grows approximately 600MB-1.2GB per month per production line. Plan disk space accordingly.
 
 ---
 
-## 4. Data Flow
+## 5. Data Flow
 
-### Complete Data Flow Diagram
+### Camera Data Flow (v1.0 + v2.0)
 
 ```mermaid
 flowchart TD
     subgraph INPUT["📥 INPUT"]
-        CMM[CMM Machine] --> EXCEL[Excel File<br/>Production1_No1_PB3C-5005-*.xlsx]
+        CMM[CMM Machine] --> EXCEL[Excel File<br/>matching pattern]
     end
-    
+
     subgraph READ["📖 READ EXCEL"]
-        EXCEL --> GDT_READ[Read GD&T Sheet<br/>Rows 22-393<br/>Columns E, I, U]
-        EXCEL --> XYZ_READ[Read Data Sheet<br/>Rows 14-592<br/>Columns N, AA]
+        EXCEL --> GDT_READ[Read GD&T Sheet]
+        EXCEL --> XYZ_READ[Read Data Sheet]
         EXCEL --> META[Read Metadata<br/>Temperature, Model Type]
     end
-    
+
     subgraph EXTRACT["🔍 EXTRACT VALUES"]
-        GDT_READ --> GDT_LH[372 LH Values<br/>Column I]
-        GDT_READ --> GDT_RH[372 RH Values<br/>Column U]
-        XYZ_READ --> XYZ_LH[579 LH Values<br/>Column N]
-        XYZ_READ --> XYZ_RH[579 RH Values<br/>Column AA]
+        GDT_READ --> GDT_LH[LH GDT Values]
+        GDT_READ --> GDT_RH[RH GDT Values]
+        XYZ_READ --> XYZ_LH[LH XYZ Values]
+        XYZ_READ --> XYZ_RH[RH XYZ Values]
     end
-    
+
     subgraph SPECS["📋 LOAD SPECS"]
         CACHE{Excel Cache<br/>Exists?}
         CACHE -->|Yes| LOAD_EXCEL[Load from Excel<br/>~0.1 seconds]
-        CACHE -->|No| LOAD_SQL[Query SQL<br/>QC_Specs table]
+        CACHE -->|No| LOAD_SQL[Query SQL<br/>via PySpark JDBC<br/>or pyodbc fallback]
         LOAD_SQL --> SAVE_CACHE[Save to Excel Cache]
     end
-    
+
     subgraph STATUS["✅ CHECK STATUS"]
-        GDT_LH --> CHECK1[Compare vs Spec Limits]
-        GDT_RH --> CHECK2[Compare vs Spec Limits]
-        XYZ_LH --> CHECK3[Compare vs Spec Limits]
-        XYZ_RH --> CHECK4[Compare vs Spec Limits]
-        CHECK1 --> STATUS_RESULT[OK / NG / N/A]
-        CHECK2 --> STATUS_RESULT
-        CHECK3 --> STATUS_RESULT
-        CHECK4 --> STATUS_RESULT
+        STATUS_RESULT[OK / NG / N/A]
     end
-    
-    subgraph PHASE1["⬆️ PHASE 1: RAW DATA INSERT"]
-        STATUS_RESULT --> INSERT_HEADER[Insert Headers<br/>QC_Inspection_Header]
-        GDT_LH --> INSERT_GDT[Insert GDT Data<br/>QC_GDT_Data]
-        GDT_RH --> INSERT_GDT
-        XYZ_LH --> INSERT_XYZ[Insert XYZ Data<br/>QC_XYZ_Data]
-        XYZ_RH --> INSERT_XYZ
+
+    subgraph INSERT_RAW["⬆️ RAW DATA INSERT"]
+        STATUS_RESULT --> INSERT_HEADER[Insert Headers]
+        INSERT_HEADER --> INSERT_GDT[Insert GDT Data]
+        INSERT_GDT --> INSERT_XYZ[Insert XYZ Data]
     end
-    
-    subgraph CALC["🧮 CALCULATE SPC"]
-        DB_HIST[(Last 125 Samples<br/>from Database)] --> CALC_STATS[Calculate Mean, StdDev]
-        CALC_STATS --> CALC_UCL[UCL = Mean + 3σ]
-        CALC_STATS --> CALC_LCL[LCL = Mean - 3σ]
-        CALC_STATS --> CALC_PPK[PPK = min PPU, PPL]
-        CALC_STATS --> CALC_PP[PP = USL-LSL / 6σ]
+
+    subgraph CALC["🧮 CALCULATE STATISTICS - v2.0"]
+        DB_HIST[(Last 125 Samples)] --> CALC_STATS[Mean, StdDev]
+        CALC_STATS --> CALC_LIMITS[UCL, LCL]
+        CALC_STATS --> CALC_PPK[PPK, PP, PPU, PPL]
+        CALC_PPK --> CLASSIFY[Classify: Capable/Marginal/<br/>Not Capable]
     end
-    
-    subgraph PHASE2["⬆️ PHASE 2: SPC SNAPSHOT INSERT"]
-        CALC_UCL --> INSERT_UCL[Insert UCL/LCL<br/>QC_GDT_Data, QC_XYZ_Data]
-        CALC_LCL --> INSERT_UCL
-        CALC_PPK --> INSERT_PPK[Insert PPK/PP<br/>QC_PPK_PP_Data]
-        CALC_PP --> INSERT_PPK
+
+    subgraph INSERT_STATS["⬆️ STATISTICS INSERT - v2.0"]
+        CLASSIFY --> INSERT_GSTATS[Insert QC_GDT_Statistics<br/>with lineage FK]
+        CLASSIFY --> INSERT_XSTATS[Insert QC_XYZ_Statistics<br/>with lineage FK]
     end
-    
+
+    subgraph VERIFY["✓ VERIFY - v2.0"]
+        INSERT_GSTATS --> CHECK[Count rows in all 7 tables]
+        INSERT_XSTATS --> CHECK
+        CHECK --> RETRY{Any failed?}
+        RETRY -->|Yes| QUEUE[Add to retry queue]
+        RETRY -->|No| OK[✓ Run complete]
+    end
+
     subgraph OUTPUT["📊 OUTPUT"]
-        INSERT_HEADER --> DB[(SQL Database<br/>WA_SPC)]
-        INSERT_GDT --> DB
-        INSERT_XYZ --> DB
-        INSERT_UCL --> DB
-        INSERT_PPK --> DB
-        DB --> GRAFANA[Grafana<br/>Real-time Charts]
-        DB --> POWERBI[Power BI<br/>Reports]
-        PHASE1 --> EXCEL_OUT[Excel Summary<br/>Shift Reports]
+        OK --> DB[(spc_database)]
+        DB --> GRAFANA[Grafana Real-time]
+        DB --> POWERBI[Power BI 4-page Dashboard]
+        OK --> EXCEL_OUT[Excel Shift Reports]
     end
 ```
 
-### Step-by-Step Process
+### CMM Data Flow (v2.0 — NEW)
+
+CMM inspection has different characteristics than camera inspection:
+
+| Aspect | Camera | CMM |
+|--------|--------|-----|
+| Volume | Every product | Sample (3-4 per shift per model) |
+| Schedule | Continuous | Irregular (when worker finishes) |
+| Method | Automated | Human + machine |
+| Points | Baseline set | Baseline + extra accuracy points |
+| Data entry | Automated Excel | Worker submission |
+
+A traditional file-watcher doesn't work for CMM because submissions are
+irregular and there's no fixed file. The v2.0 solution uses Microsoft
+Power Platform:
+
+```mermaid
+flowchart LR
+    WORKER[👷 Worker finishes<br/>CMM inspection]
+    APP[📱 Power App<br/>submission form]
+    EXCEL[📄 Excel<br/>staging file]
+    AUTO[⚙️ Power Automate<br/>extract + transform]
+    GATEWAY[🚪 SQL Gateway]
+    DB[(🗄️ spc_database<br/>same as camera)]
+    BI[📊 Power BI<br/>correlation pages]
+
+    WORKER --> APP
+    APP --> EXCEL
+    EXCEL --> AUTO
+    AUTO --> GATEWAY
+    GATEWAY --> DB
+    DB --> BI
+```
+
+**Why this design works:**
+
+| Requirement | Solution |
+|-------------|----------|
+| Workers need a form, not SQL access | Power App mobile/tablet form |
+| No fixed schedule | Power Automate trigger-based, not timer-based |
+| Same database as camera | SQL Gateway bridges cloud → on-prem SQL |
+| Correlation requires unified storage | CMM rows use same tables, different `production_line` value or flag |
+
+**Scope note:** I designed this pipeline up to the SQL staging layer.
+A separate team handles the final ingestion handoff. The Power BI
+dashboard layer (Section 11) is mine end-to-end.
+
+### Step-by-Step Camera Process
 
 | Step | Component | Description |
 |------|-----------|-------------|
-| 1 | CMM Machine | Outputs Excel file with measurement data |
-| 2 | MainSCPProduction1L1.py | Scans folder for new files (every 10 seconds) |
-| 3 | Filename Filter | Validates pattern: `Production1_No1_PB3C-5005-*.xlsx` |
+| 1 | CMM/Camera Machine | Outputs Excel file with measurement data |
+| 2 | Main script | Scans folder for new files (every 10 seconds) |
+| 3 | Filename Filter | Validates pattern for that production line |
 | 4 | Duplicate Check | Checks local log + SQL database |
-| 5 | Read Excel | Extracts GD&T (372) and XYZ (579) values |
-| 6 | Load Specs | From Excel cache or SQL QC_Specs |
+| 5 | Read Excel | Extracts GD&T and XYZ values |
+| 6 | Load Specs | From Excel cache (PySpark JDBC or pyodbc fallback to SQL) |
 | 7 | Check Status | Compare each value against spec limits |
-| 8 | Phase 1 Insert | Headers + raw measurements |
-| 9 | Calculate SPC | PPK, PP, UCL, LCL from last 125 samples |
-| 10 | Phase 2 Insert | SPC snapshot for all files in batch |
-| 11 | Save Excel | Shift summary reports |
-| 12 | Log | Record to console and Excel log |
+| 8 | Raw Insert | Headers + raw measurements |
+| 9 | Calculate Stats (v2.0) | PPK, PP, UCL, LCL from last 125 samples |
+| 10 | Stats Insert (v2.0) | Insert to QC_GDT_Statistics + QC_XYZ_Statistics with lineage |
+| 11 | Verification (v2.0) | Count rows in all 7 tables; queue retry on failure |
+| 12 | Save Excel | Shift summary reports |
+| 13 | Log | Record to console and Excel log |
 
 ---
 
-## 5. Code Structure
+## 6. Code Structure
 
 ### File Overview
 
 ```
 Project/
-├── MainSCPProduction1L1.py          # Main script for Production Line 1
-├── MainSCPProduction1L2.py          # Main script for Production Line 2 (same logic)
-├── unified_qc_insert.py      # Database insert operations (V7)
-├── unified_ppk_calculator.py # PPK/PP calculation engine
-├── spec_loader.py            # Specification loading with caching
-├── SPCLogger.py              # Logging system
-├── header_definitions.py     # Measurement code headers
-├── spec_limit_Production1.py        # Spec limits (legacy, now in SQL)
-├── .env                      # Environment configuration
-└── Production1L1_Log/               # Output folder (auto-created)
-    ├── Logs/                 # Activity logs
-    ├── Output/               # Shift summary Excel files
-    └── Specs/                # Cached specification Excel
+├── MainSPC_Line_01.py               # Main script for Line_01
+├── MainSPC_Line_02.py               # Main script for Line_02
+├── MainSPC_Line_03.py               # Main script for Line_03
+├── MainSPC_Line_R.py                # Main script for Line_R (v2.0, different layout)
+├── unified_qc_insert.py             # Database insert operations
+├── statistics_calculator.py         # 🆕 v2.0 PPK/PP calculation engine (replaces unified_ppk_calculator.py)
+├── spec_loader.py                   # Spec loading with PySpark JDBC option (v2.0)
+├── SPCLogger.py                     # Logging system
+├── header_definitions.py            # Measurement code headers
+├── .env                             # Environment configuration
+└── {Line}_Log/                      # Output folder per line (auto-created)
+    ├── Logs/                        # Activity logs
+    ├── Output/                      # Shift summary Excel files
+    └── Specs/                       # Cached specification Excel
 ```
 
 ### Component Details
 
-#### MainSCPProduction1L1.py - Main Orchestrator
+#### Main Script per Line — Orchestrator
 
 ```mermaid
 flowchart TD
     START[Start] --> LOAD_ENV[Load .env Configuration]
     LOAD_ENV --> CREATE_FOLDERS[Create Folder Structure]
-    CREATE_FOLDERS --> LOAD_SPECS[Load Specifications<br/>spec_loader.py]
-    LOAD_SPECS --> INIT[Initialize Components<br/>Logger, SQL Inspector, PPK Calculators]
-    
+    CREATE_FOLDERS --> LOAD_SPECS[Load Specifications<br/>spec_loader.py via PySpark or pyodbc]
+    LOAD_SPECS --> INIT[Initialize Components<br/>Logger, SQL Inspector]
+
     INIT --> LOOP_START[Main Loop Start]
-    LOOP_START --> COUNTDOWN[Wait 10 seconds]
+    LOOP_START --> RECONNECT[v2.0: Health-check SQL connection<br/>Reconnect if dead]
+    RECONNECT --> COUNTDOWN[Wait 10 seconds]
     COUNTDOWN --> LOAD_PROCESSED[Load Processed Files<br/>Local Log + SQL]
     LOAD_PROCESSED --> SCAN[Scan for New Files]
-    
+
     SCAN --> CHECK{New Files<br/>Found?}
     CHECK -->|No| LOOP_START
     CHECK -->|Yes| PROCESS[Process Each File]
-    
+
     PROCESS --> READ[Read Excel Data]
     READ --> STATUS[Determine Status FG/NG]
-    STATUS --> PHASE1[Phase 1: Insert Raw Data]
-    PHASE1 --> BATCH[Add to Batch List]
-    BATCH --> NEXT{More<br/>Files?}
+    STATUS --> RAW[Insert Raw Data]
+    RAW --> STATS[v2.0: Calculate + Insert Stats]
+    STATS --> VERIFY[v2.0: Verify all tables]
+    VERIFY --> NEXT{More<br/>Files?}
     NEXT -->|Yes| PROCESS
-    NEXT -->|No| PHASE2[Phase 2: Calculate & Insert SPC]
-    
-    PHASE2 --> SAVE_EXCEL[Save Excel Summaries]
+    NEXT -->|No| RETRY[v2.0: Retry failed stats runs]
+
+    RETRY --> SAVE_EXCEL[Save Excel Summaries]
     SAVE_EXCEL --> LOG[Log Cycle Results]
     LOG --> LOOP_START
 ```
 
-**Key Configuration (DATA_MAP):**
+**Key Configuration (DATA_MAP) — example for Line_R:**
 
 | Setting | Value | Description |
 |---------|-------|-------------|
 | gdt_sheet | "GD&T Data" | Sheet name for GD&T |
 | gdt_cols | "E,I,U" | Column E=codes, I=LH, U=RH |
-| gdt_skiprows | 21 | Start at row 22 |
-| gdt_nrows | 372 | Read 372 rows (22-393) |
+| gdt_skiprows | 23 | Start row |
+| gdt_nrows | 275 | Number of GDT rows |
 | data_sheet | "Data" | Sheet name for XYZ |
-| data_cols | "N,AA" | Column N=LH, AA=RH |
-| data_skiprows | 13 | Start at row 14 |
-| data_nrows | 579 | Read 579 rows (14-592) |
+| data_cols | "I,U" | Column I=LH, U=RH |
+| data_skiprows | 14 | Start row |
+| data_nrows | 470 | Number of XYZ rows |
 | meta_sheet | "A" | Metadata sheet |
 | temp_cell | "H7" | Temperature cell |
 | model_cell | "G2" | Model type cell |
 
+Each line has its own DATA_MAP because Excel layouts vary by camera setup.
+
 ---
 
-#### unified_qc_insert.py - Database Operations (V7)
+#### unified_qc_insert.py — Database Operations
 
 **Key Features:**
 - Duplicate detection before insert (checks SQL + local log)
 - Status check using measurement_code lookup
 - Batch insert with `executemany` for performance
-- Separate xyz_axis column for XYZ data (V7 change)
+- Separate `xyz_axis` column for XYZ data (v2.0)
 
 **Main Methods:**
 
@@ -662,39 +887,47 @@ flowchart TD
 | `insert_gdt_batch()` | Insert GDT measurements + UCL/LCL |
 | `insert_xyz_batch()` | Insert XYZ measurements (with xyz_axis) |
 | `insert_xyz_ucl_lcl_batch()` | Insert XYZ control limits |
-| `insert_ppk_batch()` | Insert PPK/PP values |
+| `insert_ppk_batch()` | Insert PPK/PP values (legacy v1 path) |
 | `get_gdt_status()` | Check status using spec lookup |
 | `get_xyz_status()` | Check status using spec lookup |
 | `get_processed_filenames()` | Get already processed files from SQL |
 
-**V7 Change - XYZ Data Type:**
+**xyz_axis change (v1 → v2):**
 
-Before V7:
+v1.0:
 ```
 data_type = "LH X", "LH Y", "LH Z", "RH X", etc.
 ```
 
-After V7:
+v2.0:
 ```
 data_type = "LH" or "RH"
 xyz_axis = "X", "Y", "Z", or "N" (separate column)
 ```
 
+This makes it easier to query "all LH data regardless of axis" without
+parsing the string.
+
 ---
 
-#### unified_ppk_calculator.py - PPK Calculation
+#### statistics_calculator.py — v2.0 PPK Calculation
+
+**Replaces:** `unified_ppk_calculator.py` from v1.0
 
 **Calculation Flow:**
 
 ```mermaid
 flowchart LR
-    A[Query Last 125 Samples] --> B[Pivot by measurement_code]
-    B --> C[Calculate Mean & StdDev]
-    C --> D[Load Spec Limits]
-    D --> E[Calculate PPK, PP]
-    D --> F[Calculate UCL, LCL]
-    E --> G[Return 8 Arrays]
-    F --> G
+    A[Get last 125 samples<br/>from QC_GDT_Data / QC_XYZ_Data] --> B[Calculate Mean & StdDev]
+    B --> C[Load Spec Limits<br/>by measurement_code + side]
+    C --> D[Calculate PPU, PPL]
+    D --> E[PPK = min PPU, PPL]
+    D --> F[PP based on spec mode]
+    B --> G[UCL = Mean + 3σ<br/>LCL = Mean - 3σ]
+    E --> H[Classify Capability]
+    H --> I[Insert with lineage FK]
+    F --> I
+    G --> I
 ```
 
 **Formulas:**
@@ -705,53 +938,71 @@ flowchart LR
 | LCL | Mean - 3 × StdDev |
 | PPU | (USL - Mean) / (3 × StdDev) |
 | PPL | (Mean - LSL) / (3 × StdDev) |
-| PPK | min(PPU, PPL) |
-| PP | (USL - LSL) / (6 × StdDev) |
+| PPK (two-sided) | min(PPU, PPL) |
+| PPK (one-sided) | PPU only or PPL only (v2.0 fix) |
+| PP (two-sided) | (USL - LSL) / (6 × StdDev) |
+| PP (one-sided) | PPU or PPL (v2.0 fix) |
 
-**Return Values:**
+**One-sided spec handling (v2.0 fix):**
 
-Returns tuple of 8 lists (all same length as headers):
-1. `lh_ppks` - LH PPK values
-2. `rh_ppks` - RH PPK values
-3. `lh_pps` - LH PP values
-4. `rh_pps` - RH PP values
-5. `lh_ucls` - LH Upper Control Limits
-6. `lh_lcls` - LH Lower Control Limits
-7. `rh_ucls` - RH Upper Control Limits
-8. `rh_lcls` - RH Lower Control Limits
+In v1.0, PPK was NULL whenever one spec limit was zero (e.g., flatness
+specs where spec_min = 0 is valid). v2.0 correctly treats:
+- `spec_min = NULL, spec_max != NULL` → one-sided upper, PPK = PPU
+- `spec_min != NULL, spec_max = NULL` → one-sided lower, PPK = PPL
+- `spec_min = 0, spec_max = 0` → no spec defined, skip
+- `spec_min = 0, spec_max != 0` → valid one-sided lower (zero is a real limit)
 
-**UCL/LCL Clamping:**
+**Capability classification (v2.0):**
 
-Control limits are clamped to specification limits for display:
-```python
-display_ucl = min(calculated_ucl, spec_max)
-display_lcl = max(calculated_lcl, spec_min)
-```
+| PPK Value | Classification |
+|-----------|----------------|
+| ≥ 1.33 | Capable |
+| 1.00 - 1.33 | Marginal |
+| < 1.00 | Not Capable |
+| Sample count < 125 | Append "(Low Sample)" suffix |
+
+**Per-run insert with lineage:**
+
+Statistics are inserted **per run**, with `gdt_data_id` / `xyz_data_id`
+foreign keys back to the source measurement row. This means:
+- You can audit exactly which 125 samples produced any PPK value
+- Statistics are tied 1:1 to the latest measurement for that code
+- Old statistics aren't overwritten — every run gets a snapshot
 
 ---
 
-#### spec_loader.py - Specification Loading
+#### spec_loader.py — v2.0 Dual-Path Loading
 
 **Caching Strategy:**
 
 ```mermaid
 flowchart TD
     START[Load Specs] --> CHECK{Excel Cache<br/>Exists?}
-    CHECK -->|Yes| LOAD_EXCEL[Load from Excel<br/>Specs_Production1L1.xlsx]
-    CHECK -->|No| LOAD_SQL[Query SQL QC_Specs]
-    LOAD_SQL --> SAVE[Save to Excel Cache]
+    CHECK -->|Yes| LOAD_EXCEL[Load from Excel<br/>~0.1 seconds]
+    CHECK -->|No| TRY_SPARK{PySpark<br/>available?}
+    TRY_SPARK -->|Yes| SPARK[PySpark JDBC<br/>read QC_Specs]
+    TRY_SPARK -->|No| ODBC[pyodbc fallback]
+    SPARK -->|Success| SAVE[Save to Excel Cache]
+    SPARK -->|Fail| ODBC
+    ODBC --> SAVE
     SAVE --> RETURN[Return SpecData]
     LOAD_EXCEL --> RETURN
 ```
 
-**Why Caching?**
+**Why caching?**
 - SQL query: ~1-2 seconds
 - Excel load: ~0.1 seconds
 - Faster startup after first run
 
+**Why PySpark JDBC option (v2.0)?**
+- Spec loading is a bulk read (potentially thousands of rows)
+- PySpark JDBC handles bulk reads more efficiently than pyodbc
+- Includes automatic fallback to pyodbc if PySpark unavailable
+- This is an optional optimization — the system works fine with pyodbc only
+
 **Refresh Specs:**
 To reload specs from SQL after database changes:
-1. Delete Excel cache file: `Specs/Specs_Production1L1.xlsx`
+1. Delete Excel cache file: `Specs/Specs_Line_01.xlsx`
 2. Restart the program
 3. System reloads from SQL and creates new cache
 
@@ -760,9 +1011,9 @@ To reload specs from SQL after database changes:
 ```python
 @dataclass
 class SpecData:
-    gdt_headers: List[str]      # 372 GDT measurement codes
-    xyz_headers: List[str]      # 579 XYZ measurement codes
-    gdt_specs_lh: Dict[str, Tuple[float, float]]  # {code: (min, max)}
+    gdt_headers: List[str]
+    xyz_headers: List[str]
+    gdt_specs_lh: Dict[str, Tuple[float, float]]
     gdt_specs_rh: Dict[str, Tuple[float, float]]
     xyz_specs_lh: Dict[str, Tuple[float, float]]
     xyz_specs_rh: Dict[str, Tuple[float, float]]
@@ -773,42 +1024,20 @@ class SpecData:
 
 ---
 
-## 6. Key Features
+## 7. Key Features
 
 ### Feature 1: Duplicate Detection
 
 The system prevents duplicate processing by checking:
 
-1. **Local Excel Log** - `processed_files_log.xlsx`
-2. **SQL Database** - `QC_Inspection_Header.file_name`
+1. **Local Excel Log** — `processed_files_log.xlsx`
+2. **SQL Database** — `QC_Inspection_Header.file_name`
 
-```python
-# Reload at EACH cycle to catch files processed by other instances
-processed_files = load_processed_files()  # Checks both local + SQL
-```
+Files are not reprocessed even if multiple instances run on different PCs.
 
-This ensures files are not reprocessed even if multiple instances run on different PCs.
+### Feature 2: Spec-Based Status Check
 
----
-
-### Feature 2: Two-Phase Insert
-
-**Why Two Phases?**
-
-| Single Phase (Old) | Two Phase (New) |
-|-------------------|-----------------|
-| Calculate PPK per file | Calculate PPK once per batch |
-| 10 files = 10 PPK calculations | 10 files = 1 PPK calculation |
-| Slower | Faster |
-
-**Phase 1:** Insert raw measurements immediately per file
-**Phase 2:** Calculate SPC once, insert for all files in batch
-
----
-
-### Feature 3: Spec-Based Status Check
-
-Status is determined by comparing against **specification limits** (not UCL/LCL):
+Status is determined by comparing against **specification limits**:
 
 ```python
 # Check each measurement against its spec
@@ -822,79 +1051,45 @@ for code, value in zip(headers, values):
 - **FG (Finish Good):** All points OK or N/A
 - **NG (No Good):** Any point is NG
 
----
+### Feature 3: Skip Zero / Skip Missing
 
-### Feature 4: Skip Zero Values
+Zero or missing values are skipped during insert to reduce database size.
+Useful because many measurement points may have no data and would otherwise
+fill the database with noise.
 
-Zero values are skipped during insert to reduce database size:
+### Feature 4: Auto Folder Creation
 
-```python
-insert_gdt_batch(..., skip_zeros=True)
-```
-
-This is useful because:
-- Many measurement points may have no data (0)
-- Reduces database size significantly
-- Reduces insert time
-
----
-
-### Feature 5: Auto Folder Creation
-
-The system automatically creates required folders:
+The system automatically creates required folders per line:
 
 ```
 {source_directory}/
-└── Production1L1_Log/
-    ├── Logs/       # Activity logs, processed files log
-    ├── Output/     # Shift summary Excel files
-    └── Specs/      # Cached specification Excel
+└── {Line}_Log/
+    ├── Logs/
+    ├── Output/
+    └── Specs/
 ```
 
-No manual folder creation needed.
-
----
-
-### Feature 6: Shift-Based Reports
+### Feature 5: Shift-Based Reports
 
 Excel summaries are generated per shift:
 
 ```
-Summary Quality Production1L1 Daily 23-12-2025-DayShift.xlsx
-Summary Quality Production1L1 Daily 23-12-2025-NightShift.xlsx
+Summary Quality Line_01 Daily 23-12-2025-DayShift.xlsx
+Summary Quality Line_01 Daily 23-12-2025-NightShift.xlsx
 ```
 
 **Shift Definition:**
 - Day Shift: 07:00 - 19:30
 - Night Shift: 19:30 - 07:00
 
----
-
-### Feature 7: Connection Recovery
-
-Database connection automatically recovers on failure:
-
-```python
-max_retries = 3
-for attempt in range(max_retries):
-    try:
-        # Execute query
-    except (DBAPIError, OperationalError):
-        self._invalidate_engine()
-        self._create_engine()
-        time.sleep(1)
-```
-
----
-
-### Feature 8: ODBC Driver Auto-Detection
+### Feature 6: ODBC Driver Auto-Detection
 
 System automatically detects available ODBC driver:
 
 ```python
 drivers = [
-    "ODBC Driver 18 for SQL Server",  # Try first
-    "ODBC Driver 17 for SQL Server",  # Fallback
+    "ODBC Driver 18 for SQL Server",
+    "ODBC Driver 17 for SQL Server",
     "SQL Server Native Client 11.0",
     "SQL Server"
 ]
@@ -902,9 +1097,55 @@ drivers = [
 
 No manual driver configuration needed.
 
+### Feature 7: Auto-Reconnect Logic 🆕 v2.0
+
+Database connection automatically recovers on failure:
+
+- Health-check via `SELECT 1` before each cycle
+- Up to **3 retry attempts** with 10-second delay
+- Fully closes dead connection before reconnecting
+- Logs each attempt for debugging
+- If all retries fail, waits 60 seconds before next cycle attempt
+
+This prevents the service from dying when SQL Server has brief outages.
+
+### Feature 8: Statistics Retry Queue 🆕 v2.0
+
+If statistics calculation fails for a run mid-cycle:
+- The run is added to `stats_failed_runs[]` queue
+- At end of cycle, all queued runs are retried
+- Statistics aren't lost just because of a transient connection issue
+
+### Feature 9: Post-Insert Verification 🆕 v2.0
+
+After each run insert, the system counts rows in all 7 tables:
+
+```
+[VERIFY] QC_Inspection_Header: 2 rows [OK]
+[VERIFY] QC_GDT_Data: 744 rows [OK]
+[VERIFY] QC_XYZ_Data: 1158 rows [OK]
+[VERIFY] QC_GDT_Statistics: 372 rows [OK]
+[VERIFY] QC_XYZ_Statistics: 579 rows [OK]
+[VERIFY] All tables OK for Line_01-23042026-...
+```
+
+If any table shows zero rows, it's flagged as MISSING. This catches silent
+partial failures that v1.0 couldn't detect.
+
+### Feature 10: PySpark JDBC Spec Loading 🆕 v2.0
+
+Spec loader tries PySpark first, falls back to pyodbc automatically.
+Useful for bulk spec reads on lines with thousands of measurement points.
+
+### Feature 11: PPK Capability Classification 🆕 v2.0
+
+Every PPK value is classified as Capable / Marginal / Not Capable, with
+a "(Low Sample)" suffix when the rolling window has fewer than 125 samples.
+This makes Power BI dashboards instantly readable without DAX threshold logic.
+
 ---
 
-## 7. Installation
+## 8. Installation
 
 ### Requirements
 
@@ -914,6 +1155,7 @@ No manual driver configuration needed.
 | Python | 3.8 or higher |
 | Database | SQL Server 2016+ |
 | ODBC Driver | ODBC Driver 17 or 18 for SQL Server |
+| PySpark (optional, v2.0) | 3.x with `mssql-jdbc` driver |
 | Network | Access to SQL Server and CMM output folder |
 
 ### Python Dependencies
@@ -925,6 +1167,7 @@ pyodbc>=4.0.30
 sqlalchemy>=1.4.0
 openpyxl>=3.0.9
 python-dotenv>=0.19.0
+pyspark>=3.0.0  # optional, v2.0
 ```
 
 ### Installation Steps
@@ -946,36 +1189,42 @@ Download and install from Microsoft:
 
 ```bash
 pip install pandas numpy pyodbc sqlalchemy openpyxl python-dotenv
+
+# Optional v2.0:
+pip install pyspark
 ```
 
-#### Step 4: Copy Program Files
+#### Step 4: Install Microsoft SQL Server JDBC Driver (v2.0, optional)
+
+For PySpark JDBC option, place `mssql-jdbc-*.jar` in your Spark classpath.
+Download from: [Microsoft JDBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/jdbc/download-microsoft-jdbc-driver-for-sql-server)
+
+#### Step 5: Copy Program Files
 
 Copy all Python files to target folder:
 ```
 C:\SPC_System\
-├── MainSCPProduction1L1.py
+├── MainSPC_Line_01.py
 ├── unified_qc_insert.py
-├── unified_ppk_calculator.py
+├── statistics_calculator.py
 ├── spec_loader.py
 ├── SPCLogger.py
 ├── header_definitions.py
 ├── .env
 ```
 
-#### Step 5: Configure Environment
+#### Step 6: Configure Environment
 
 Edit `.env` file with your settings (see Configuration section).
 
-#### Step 6: Test Run
+#### Step 7: Test Run
 
 ```bash
 cd C:\SPC_System
-python MainSCPProduction1L1.py
+python MainSPC_Line_01.py
 ```
 
 Check console output for errors.
-
----
 
 ### Windows Service Installation (Optional)
 
@@ -987,35 +1236,35 @@ To run as Windows Service that starts automatically:
 
 2. Install service:
 ```bash
-nssm install SPC_Production1L1 "C:\Python310\python.exe" "C:\SPC_System\MainSCPProduction1L1.py"
+nssm install SPC_Line_01 "C:\Python310\python.exe" "C:\SPC_System\MainSPC_Line_01.py"
 ```
 
 3. Configure service:
 ```bash
-nssm set SPC_Production1L1 AppDirectory "C:\SPC_System"
-nssm set SPC_Production1L1 DisplayName "SPC Quality System - Production1L1"
-nssm set SPC_Production1L1 Description "Real-time SPC monitoring for Production Line 1"
-nssm set SPC_Production1L1 Start SERVICE_AUTO_START
+nssm set SPC_Line_01 AppDirectory "C:\SPC_System"
+nssm set SPC_Line_01 DisplayName "SPC Quality System - Line_01"
+nssm set SPC_Line_01 Description "Real-time SPC monitoring for Line_01"
+nssm set SPC_Line_01 Start SERVICE_AUTO_START
 ```
 
 4. Start service:
 ```bash
-nssm start SPC_Production1L1
+nssm start SPC_Line_01
 ```
 
 #### Service Management
 
 | Action | Command |
 |--------|---------|
-| Start | `nssm start SPC_Production1L1` |
-| Stop | `nssm stop SPC_Production1L1` |
-| Restart | `nssm restart SPC_Production1L1` |
-| Status | `nssm status SPC_Production1L1` |
-| Remove | `nssm remove SPC_Production1L1` |
+| Start | `nssm start SPC_Line_01` |
+| Stop | `nssm stop SPC_Line_01` |
+| Restart | `nssm restart SPC_Line_01` |
+| Status | `nssm status SPC_Line_01` |
+| Remove | `nssm remove SPC_Line_01` |
 
 ---
 
-## 8. Configuration
+## 9. Configuration
 
 ### Environment File (.env)
 
@@ -1030,24 +1279,22 @@ All configuration is in `.env` file. Create this file in the same folder as the 
 # DATABASE CONNECTION
 # --------------------------------------------
 DB_SERVER=xxx.xxx.xxx.xxx
-DB_NAME_SPC=WA_SPC
+DB_NAME_SPC=spc_database
 DB_USER=your_username
 DB_PASS=your_password
 
 # --------------------------------------------
-# SOURCE DIRECTORIES (CMM Output Folders)
+# SOURCE DIRECTORIES (CMM/Camera Output Folders)
 # --------------------------------------------
-# Supports %USERPROFILE% expansion
-Production1L1_DIRECTORY=D:\Data\Production1 No1 LOG
-Production1L2_DIRECTORY=D:\Data\Production1 No2 LOG
+Line_01_DIRECTORY=D:\Data\Line_01_LOG
+Line_02_DIRECTORY=D:\Data\Line_02_LOG
+Line_03_DIRECTORY=D:\Data\Line_03_LOG
+Line_R_DIRECTORY=D:\Data\Line_R_LOG
 
 # --------------------------------------------
 # PROCESSING SETTINGS
 # --------------------------------------------
-# Seconds between scan cycles
 COUNTDOWN_SECONDS=10
-
-# Days to look back for duplicate check
 LOOKBACK_DAYS=30
 ```
 
@@ -1058,7 +1305,7 @@ LOOKBACK_DAYS=30
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `DB_SERVER` | SQL Server IP or hostname | 192.168.1.100 |
-| `DB_NAME_SPC` | Database name | WA_SPC |
+| `DB_NAME_SPC` | Database name | spc_database |
 | `DB_USER` | Database username | spc_user |
 | `DB_PASS` | Database password | (your password) |
 
@@ -1066,8 +1313,10 @@ LOOKBACK_DAYS=30
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `Production1L1_DIRECTORY` | CMM output folder for Line 1 | D:\CMM\Production1_L1 |
-| `Production1L2_DIRECTORY` | CMM output folder for Line 2 | D:\CMM\Production1_L2 |
+| `Line_01_DIRECTORY` | Camera output folder for Line_01 | D:\Camera\Line_01 |
+| `Line_02_DIRECTORY` | Camera output folder for Line_02 | D:\Camera\Line_02 |
+| `Line_03_DIRECTORY` | Camera output folder for Line_03 | D:\Camera\Line_03 |
+| `Line_R_DIRECTORY` | Camera output folder for Line_R | D:\Camera\Line_R |
 
 **Note:** Supports Windows environment variables like `%USERPROFILE%`
 
@@ -1080,67 +1329,45 @@ LOOKBACK_DAYS=30
 
 ### Folder Structure (Auto-Created)
 
-The system automatically creates this folder structure:
+The system automatically creates this folder structure per line:
 
 ```
-{Production1L1_DIRECTORY}/
-├── (CMM Excel files - source)
-└── Production1L1_Log/
+{Line_xx_DIRECTORY}/
+├── (Camera Excel files - source)
+└── Line_xx_Log/
     ├── Logs/
-    │   ├── SPC_Log_Production1L1_2025-12-23.xlsx    # Daily activity log
-    │   └── processed_files_log.xlsx          # List of processed files
+    │   ├── SPC_Log_Line_xx_2025-12-23.xlsx    # Daily activity log
+    │   └── processed_files_log.xlsx           # List of processed files
     ├── Output/
-    │   ├── Summary Quality Production1L1 Daily 23-12-2025-DayShift.xlsx
-    │   └── Summary Quality Production1L1 PPK&PP Daily 23-12-2025-DayShift.xlsx
+    │   └── Summary Quality Line_xx Daily {date}-{shift}.xlsx
     └── Specs/
-        └── Specs_Production1L1.xlsx                  # Cached specifications
+        └── Specs_Line_xx.xlsx                 # Cached specifications
 ```
 
-### File Naming Pattern
+### File Naming Patterns
 
-The system only processes files matching this pattern:
+Each line has its own filename pattern. Files not matching the pattern are ignored.
 
+Example for Line_R:
 ```
-Production1_No1_PB3C-5005-*.xlsx
+Line_R_GCP_LINE_*-5005-*-*-*.xlsx
 ```
 
-Example valid filenames:
-- `Production1_No1_PB3C-5005-ABC123DEF-GHIJK12-001.xlsx`
-- `Production1_No1_PB3C-5005-XYZ789QRS-LMNOP34-042.xlsx`
+---
 
-Files not matching this pattern are ignored.
-
-## 9. Usage
+## 10. Usage
 
 ### Automatic Operation
 
 Once installed, the system runs automatically:
 
-1. **Starts with Windows** - If installed as service
-2. **Scans every 10 seconds** - Configurable via `COUNTDOWN_SECONDS`
-3. **Processes new files** - Detects and processes automatically
-4. **No manual action needed** - Fully automated
+1. **Starts with Windows** — If installed as service
+2. **Scans every 10 seconds** — Configurable via `COUNTDOWN_SECONDS`
+3. **Processes new files** — Detects and processes automatically
+4. **Reconnects on failure** — v2.0 auto-reconnect logic
+5. **No manual action needed** — Fully automated
 
-### Processing Cycle
-
-```mermaid
-flowchart TD
-    A[Wait 10 seconds] --> B[Load processed files list<br/>Local + SQL]
-    B --> C[Scan source folder]
-    C --> D{New files<br/>found?}
-    D -->|No| A
-    D -->|Yes| E[Process each file]
-    E --> F[Phase 1: Insert raw data]
-    F --> G{More files?}
-    G -->|Yes| E
-    G -->|No| H[Phase 2: Calculate SPC]
-    H --> I[Insert PPK/PP/UCL/LCL]
-    I --> J[Save Excel summaries]
-    J --> K[Log results]
-    K --> A
-```
-
-### Console Output
+### Console Output (v2.0)
 
 When running, you'll see output like:
 
@@ -1148,18 +1375,17 @@ When running, you'll see output like:
 ============================================================
   FOLDER CONFIGURATION
 ============================================================
-  Source Excel:     D:\Data\Production1 No1 LOG
-  Log Root:         D:\Data\Production1 No1 LOG\Production1L1_Log
-  Activity Logs:    D:\Data\Production1 No1 LOG\Production1L1_Log\Logs
-  Shift Output:     D:\Data\Production1 No1 LOG\Production1L1_Log\Output
-  Specs Cache:      D:\Data\Production1 No1 LOG\Production1L1_Log\Specs
+  Source Excel:     D:\Data\Line_R_LOG
+  Log Root:         D:\Data\Line_R_LOG\Line_R_Log
+  Activity Logs:    D:\Data\Line_R_LOG\Line_R_Log\Logs
+  Shift Output:     D:\Data\Line_R_LOG\Line_R_Log\Output
+  Specs Cache:      D:\Data\Line_R_LOG\Line_R_Log\Specs
 ============================================================
 
-[INFO] Loading specs for Production1L1...
-[INFO] Loaded from Excel: Specs_Production1L1.xlsx
-[INFO] Loaded 372 GDT headers, 579 XYZ headers
-[INFO] SQL Inspector ready for Production1L1
-[INFO] PPK Calculators ready
+[INFO] Loading specs for Line_R...
+[INFO] PySpark fetched 745 spec rows
+[INFO] Loaded 275 GDT headers, 470 XYZ headers
+[INFO] SQL Inspector ready for Line_R
 
 ==================================================
 Next scan in..... 10 seconds
@@ -1167,14 +1393,18 @@ Next scan in..... 10 seconds
 
 [CYCLE] Starting scan cycle
 [INFO] Found 50 valid files, checking for new ones...
-[FILE] Processing: Production1_No1_PB3C-5005-ABC123DEF-GHIJK12-001.xlsx
+[FILE] Processing: Line_R_GCP_LINE_ABCD-5005-...-001.xlsx
 [INFO] Reading Excel file...
 [INFO] Excel read completed (2.35s)
-[SQL] Phase-1 insert: headers + raw measurements
-[SQL] Phase-1 insert completed
-[FILE] Completed: Production1_No1_PB3C-5005-ABC123DEF-GHIJK12-001.xlsx (5.2s)
-[SQL] Phase-2 SPC snapshot: calculate PPK/PP + UCL/LCL
-[SQL] Phase-2 SPC snapshot inserted
+[SQL] Insert: headers=2, GDT=550, XYZ=940, Total=1492
+[STATS] GDT=550, XYZ=940, PPK(GDT)=275, PPK(XYZ)=470
+[VERIFY] QC_Inspection_Header: 2 rows [OK]
+[VERIFY] QC_GDT_Data: 550 rows [OK]
+[VERIFY] QC_XYZ_Data: 940 rows [OK]
+[VERIFY] QC_GDT_Statistics: 275 rows [OK]
+[VERIFY] QC_XYZ_Statistics: 470 rows [OK]
+[VERIFY] All tables OK for Line_R-26042026-...
+[FILE] Completed: Line_R_GCP_LINE_ABCD-5005-...-001.xlsx (5.2s)
 [INFO] Saved 1 new records to Excel files
 [CYCLE] Completed: 50 files found, 1 processed
 ```
@@ -1184,55 +1414,41 @@ Next scan in..... 10 seconds
 | Task | How to Do |
 |------|-----------|
 | Check if running | Look at console output or Windows Services |
-| View activity log | Open `Production1L1_Log/Logs/SPC_Log_Production1L1_YYYY-MM-DD.xlsx` |
-| View processed files | Open `Production1L1_Log/Logs/processed_files_log.xlsx` |
+| View activity log | Open `{Line}_Log/Logs/SPC_Log_{Line}_YYYY-MM-DD.xlsx` |
+| View processed files | Open `{Line}_Log/Logs/processed_files_log.xlsx` |
 | Reprocess a file | Delete entry from `processed_files_log.xlsx` and restart |
-| Refresh specs | Delete `Production1L1_Log/Specs/Specs_Production1L1.xlsx` and restart |
+| Refresh specs | Delete `{Line}_Log/Specs/Specs_{Line}.xlsx` and restart |
 | Force immediate scan | Press Ctrl+C and restart the script |
 | Stop processing | Press Ctrl+C or stop the Windows service |
 
 ### Output Files
 
-#### Shift Summary Files
-
-Located in `Production1L1_Log/Output/`:
+Located in `{Line}_Log/Output/`:
 
 | File Pattern | Content |
 |--------------|---------|
-| `Summary Quality Production1L1 Daily {date}-{shift}.xlsx` | Raw GD&T values |
-| `Summary Quality Production1L1 PPK&PP Daily {date}-{shift}.xlsx` | PPK/PP values |
-| `Summary Quality Production1L1 Dimension Daily {date}-{shift}.xlsx` | XYZ values |
-| `Summary Quality Production1L1 Dimension PPK&PP Daily {date}-{shift}.xlsx` | XYZ PPK/PP |
+| `Summary Quality {Line} Daily {date}-{shift}.xlsx` | Raw GD&T values |
+| `Summary Quality {Line} Dimension Daily {date}-{shift}.xlsx` | XYZ values |
 
-#### Activity Log
-
-Located in `Production1L1_Log/Logs/SPC_Log_Production1L1_YYYY-MM-DD.xlsx`:
-
-| Column | Description |
-|--------|-------------|
-| timestamp | When event occurred |
-| level | INFO, SUCCESS, WARNING, ERROR |
-| message | Event description |
-| file_name | Related file (if applicable) |
-| duration | Processing time (if applicable) |
-
-### Error Handling
+### Error Handling (v2.0)
 
 The system handles errors gracefully:
 
-1. **File read error** - Skips file, logs error, continues
-2. **SQL connection lost** - Retries up to 3 times with reconnection
-3. **Invalid file format** - Skips file, logs warning
-4. **Missing specs** - Uses default tolerance (±6.0)
-5. **Fatal error** - Logs error, waits 10 seconds, restarts loop
+1. **File read error** — Skips file, logs error, continues
+2. **SQL connection lost** — Auto-reconnect, up to 3 retries with 10s delay
+3. **Statistics fail mid-cycle** — Added to retry queue, retried at end of cycle
+4. **Partial table inserts** — Detected by post-insert verification
+5. **Invalid file format** — Skips file, logs warning
+6. **Missing specs** — Logs warning, PPK = NULL for those points
+7. **Fatal error** — Logs error, waits 10 seconds, restarts loop
 
 All errors are logged to both console and Excel log file.
 
 ---
 
-## 10. Visualization
+## 11. Visualization
 
-### Grafana - Real-Time SPC Monitoring
+### Grafana — Real-Time SPC Monitoring
 
 Grafana displays real-time SPC charts at shopfloor for production monitoring.
 
@@ -1254,111 +1470,57 @@ Create these variables in your dashboard:
 
 **Variable: `$line`**
 ```sql
-SELECT DISTINCT production_line 
-FROM QC_Inspection_Header 
+SELECT DISTINCT production_line
+FROM QC_Inspection_Header
 ORDER BY production_line
 ```
 
-**Variable: `$measurement_type`**
-```sql
--- Static values
-GDT
-XYZ
-```
+**Variable: `$measurement_type`** (static): `GDT`, `XYZ`
 
 **Variable: `$point` (depends on $line and $measurement_type)**
 ```sql
 -- For GDT:
-SELECT DISTINCT measurement_code 
-FROM QC_GDT_Data 
-WHERE production_line = '$line'
-ORDER BY measurement_code
-
--- For XYZ:
-SELECT DISTINCT measurement_code 
-FROM QC_XYZ_Data 
+SELECT DISTINCT measurement_code
+FROM QC_GDT_Data
 WHERE production_line = '$line'
 ORDER BY measurement_code
 ```
 
-**Variable: `$side`**
-```sql
--- Static values
-LH
-RH
-```
+**Variable: `$side`** (static): `LH`, `RH`
 
 #### Grafana Query Examples
 
 **1. GD&T Measurement with Control Limits**
 
-Shows actual value with UCL and LCL lines:
-
 ```sql
--- Measurement value
-SELECT 
-    log_date AS time,
-    value,
-    'Value' AS metric
+SELECT log_date AS time, value, 'Value' AS metric
 FROM QC_GDT_Data
 WHERE production_line = '$line'
   AND measurement_code = '$point'
   AND data_type = '$side'
   AND $__timeFilter(log_date)
-ORDER BY log_date
-
 UNION ALL
-
--- Upper Control Limit
-SELECT 
-    log_date AS time,
-    value,
-    'UCL' AS metric
-FROM QC_GDT_Data
+SELECT log_date, UCL, 'UCL'
+FROM QC_GDT_Statistics
 WHERE production_line = '$line'
   AND measurement_code = '$point'
-  AND data_type = '$side UCL'
+  AND data_type = '$side'
   AND $__timeFilter(log_date)
-ORDER BY log_date
-
 UNION ALL
-
--- Lower Control Limit
-SELECT 
-    log_date AS time,
-    value,
-    'LCL' AS metric
-FROM QC_GDT_Data
+SELECT log_date, LCL, 'LCL'
+FROM QC_GDT_Statistics
 WHERE production_line = '$line'
   AND measurement_code = '$point'
-  AND data_type = '$side LCL'
+  AND data_type = '$side'
   AND $__timeFilter(log_date)
-ORDER BY log_date
+ORDER BY time
 ```
 
-**2. PPK Trend Chart**
+**2. PPK Trend Chart (v2.0 — uses statistics table)**
 
 ```sql
-SELECT 
-    log_date AS time,
-    value AS PPK
-FROM QC_PPK_PP_Data
-WHERE production_line = '$line'
-  AND measurement_code = '$point'
-  AND data_type = '$side PPK'
-  AND measurement_type = 'GDT'
-  AND $__timeFilter(log_date)
-ORDER BY log_date
-```
-
-**3. XYZ Measurement by Axis**
-
-```sql
-SELECT 
-    log_date AS time,
-    value,
-    xyz_axis
-FROM QC_XYZ_Data
+SELECT log_date AS time, PPK
+FROM QC_GDT_Statistics
 WHERE production_line = '$line'
   AND measurement_code = '$point'
   AND data_type = '$side'
@@ -1366,33 +1528,31 @@ WHERE production_line = '$line'
 ORDER BY log_date
 ```
 
-**4. Latest PPK Values Table**
+**3. Latest PPK Status Table (v2.0)**
 
 ```sql
-SELECT 
+SELECT
     measurement_code,
-    MAX(CASE WHEN data_type = 'LH PPK' THEN value END) AS LH_PPK,
-    MAX(CASE WHEN data_type = 'RH PPK' THEN value END) AS RH_PPK,
-    MAX(CASE WHEN data_type = 'LH PP' THEN value END) AS LH_PP,
-    MAX(CASE WHEN data_type = 'RH PP' THEN value END) AS RH_PP
-FROM QC_PPK_PP_Data
+    PPK,
+    ppk_status,
+    sample_count
+FROM QC_GDT_Statistics s
 WHERE production_line = '$line'
-  AND measurement_type = 'GDT'
-  AND log_date = (
-      SELECT MAX(log_date) 
-      FROM QC_PPK_PP_Data 
+  AND data_type = '$side'
+  AND calculated_at = (
+      SELECT MAX(calculated_at)
+      FROM QC_GDT_Statistics
       WHERE production_line = '$line'
+        AND measurement_code = s.measurement_code
+        AND data_type = s.data_type
   )
-GROUP BY measurement_code
-ORDER BY measurement_code
+ORDER BY PPK ASC
 ```
 
-**5. NG Count by Point (Problem Points)**
+**4. NG Count by Point (Problem Points)**
 
 ```sql
-SELECT 
-    measurement_code,
-    COUNT(*) AS ng_count
+SELECT measurement_code, COUNT(*) AS ng_count
 FROM QC_GDT_Data
 WHERE production_line = '$line'
   AND quality_status = 'NG'
@@ -1402,51 +1562,15 @@ GROUP BY measurement_code
 ORDER BY ng_count DESC
 ```
 
-**6. Daily NG Trend**
-
-```sql
-SELECT 
-    CAST(log_date AS DATE) AS time,
-    COUNT(*) AS ng_count
-FROM QC_GDT_Data
-WHERE production_line = '$line'
-  AND quality_status = 'NG'
-  AND data_type IN ('LH', 'RH')
-  AND $__timeFilter(log_date)
-GROUP BY CAST(log_date AS DATE)
-ORDER BY time
-```
-
-**7. Measurement with Spec Limits**
-
-```sql
--- Get spec limits
-SELECT 
-    d.log_date AS time,
-    d.value AS Value,
-    s.spec_max AS USL,
-    s.spec_min AS LSL
-FROM QC_GDT_Data d
-LEFT JOIN QC_Specs s 
-    ON d.measurement_code = s.measurement_code
-    AND d.production_line = s.production_line
-    AND s.point_group = '$side'
-WHERE d.production_line = '$line'
-  AND d.measurement_code = '$point'
-  AND d.data_type = '$side'
-  AND $__timeFilter(d.log_date)
-ORDER BY d.log_date
-```
-
 #### Grafana Panel Recommendations
 
-![Gafana Scada Dashboard](Scada.png)
+![Grafana SCADA Dashboard](Scada.png)
 
 | Panel Type | Best For |
 |------------|----------|
 | Time series | Measurement values with UCL/LCL |
 | Stat | Current PPK value |
-| Gauge | PPK with thresholds (green >1.33, yellow 1.0-1.33, red <1.0) |
+| Gauge | PPK with thresholds |
 | Table | Latest values for all points |
 | Bar chart | NG count by measurement point |
 | Pie chart | OK vs NG distribution |
@@ -1461,153 +1585,145 @@ ORDER BY d.log_date
 
 ---
 
-### Power BI - Weekly/Monthly Reports
+### Power BI — 4-Page Dashboard 🆕 v2.0
 
-![Power BI Dashboard](PowerBI.png)
+The v2.0 Power BI dashboard is a **structured analysis flow** that takes a
+QC engineer from "where's today's problem" to "is the camera reading this
+point correctly" in three drill-downs.
 
-Power BI generates summary reports for management to review quality trends.
+It replaces the v1.0 single-page Power BI report.
 
-#### Report Types
+#### Page 1 — Daily PPK Summary
 
-| Report | Content | Frequency |
-|--------|---------|-----------|
-| Daily Summary | Production count, NG count, PPK overview | Daily |
-| Weekly Summary | Top problem points, Pareto chart, trends | Weekly |
-| Monthly Summary | Overall quality metrics, improvement tracking | Monthly |
-| Issue Report | Points that exceed limits, action required | As needed |
+**Purpose:** Spot problems fast.
+
+**Filters:**
+- Date selector
+- Production line (Line_01 / Line_02 / Line_03 / Line_R)
+- Data source toggle (Camera or CMM)
+
+**Visuals:**
+- **Donut chart** — PPK status distribution (Capable / Marginal / Not Capable)
+- **Pareto chart** — measurement points ranked by worst PPK
+
+**User flow:** Pick a date → see overall health → click on the worst Pareto bar → drill to Page 2.
+
+#### Page 2 — Drill-Down with Temperature Overlay
+
+**Purpose:** Understand WHY a measurement point is bad.
+
+**Continues from Page 1** — uses the point selected by the user.
+
+**Visuals:**
+- **Line chart** — XYZ values that contribute to the GD&T calculation, plotted over time
+- **Temperature overlay** — secondary axis showing temperature trend
+- Filter by line and data source (Camera or CMM)
+
+**User flow:** See if measurement drift correlates with temperature → identify root cause.
+
+#### Page 3 — CMM vs Camera Gap Analysis 🆕
+
+**Purpose:** Validate that camera and CMM tell the same story for a given point.
+
+**Visuals:**
+- Both data sources overlaid on the same chart (Camera in one color, CMM in another)
+- **Gap visualization** — difference between Camera and CMM measurements over time
+- Visual check: do they trend together? Is the gap consistent?
+
+**Note:** Available only for **shared measurement points**. CMM-only points
+(extra accuracy points not measured by camera) appear on Pages 1-2 but are
+filtered out here.
+
+**User flow:** "Is camera saying the same thing as CMM for this point?" → quick yes/no answer.
+
+#### Page 4 — Correlation Scatter Plot 🆕
+
+**Purpose:** Statistically validate Camera vs CMM agreement.
+
+**Visuals:**
+- **Scatter plot** — CMM value (X-axis) vs Camera value (Y-axis), one dot per matched product
+- **Trend line** with R² / correlation coefficient
+- **Reference line** at perfect 1:1 correlation
+
+**Interpretation:**
+- High correlation + tight scatter → camera can be trusted as a CMM substitute for that point
+- Low correlation or wide scatter → that point still needs CMM verification
+
+**Business outcome:** This page enables decisions like "we can reduce CMM
+sampling on points X, Y, Z because camera correlates well; keep CMM for
+points A, B where correlation is weak."
+
+#### Why This 4-Page Design Matters
+
+The v2.0 Power BI delivers what the **original stakeholder requirement
+asked for back in 2023**: a way to validate camera measurements against
+CMM data at point-level granularity.
+
+This is the technical answer to the business question:
+> *"For which measurement points can we trust the camera, and which still
+> need CMM verification?"*
 
 #### Power BI Data Connection
 
-**Direct Query (Recommended for real-time):**
+**DirectQuery (recommended for real-time):**
 1. Get Data → SQL Server
 2. Enter server: `xxx.xxx.xxx.xxx`
-3. Enter database: `WA_SPC`
+3. Enter database: `spc_database`
 4. Select DirectQuery mode
-5. Select tables: `QC_Inspection_Header`, `QC_GDT_Data`, `QC_XYZ_Data`, `QC_PPK_PP_Data`, `QC_Specs`
+5. Select tables: `QC_Inspection_Header`, `QC_GDT_Data`, `QC_XYZ_Data`,
+   `QC_GDT_Statistics`, `QC_XYZ_Statistics`, `QC_Specs`
 
-**Import Mode (For historical analysis):**
-- Better performance for large date ranges
-- Data refreshed on schedule (not real-time)
+#### Key DAX Measures (v2.0)
 
-#### Key DAX Measures
-
-**1. Total Inspections**
+**1. Capable Points %**
 ```dax
-Total Inspections = 
-DISTINCTCOUNT(QC_Inspection_Header[run_number]) / 2
-```
-(Divide by 2 because each item has LH + RH records)
-
-**2. NG Count**
-```dax
-NG Count = 
-CALCULATE(
-    COUNTROWS(QC_GDT_Data),
-    QC_GDT_Data[quality_status] = "NG",
-    QC_GDT_Data[data_type] IN {"LH", "RH"}
-)
-```
-
-**3. NG Rate**
-```dax
-NG Rate = 
-DIVIDE([NG Count], [Total Measurements], 0)
-```
-
-**4. Average PPK**
-```dax
-Avg PPK = 
-CALCULATE(
-    AVERAGE(QC_PPK_PP_Data[value]),
-    QC_PPK_PP_Data[data_type] IN {"LH PPK", "RH PPK"}
-)
-```
-
-**5. Points Below Target PPK**
-```dax
-Low PPK Points = 
-CALCULATE(
-    DISTINCTCOUNT(QC_PPK_PP_Data[measurement_code]),
-    QC_PPK_PP_Data[value] < 1.33,
-    QC_PPK_PP_Data[data_type] IN {"LH PPK", "RH PPK"}
-)
-```
-
-**6. First Pass Yield (FPY)**
-```dax
-FPY = 
-VAR TotalItems = DISTINCTCOUNT(QC_Inspection_Header[run_number]) / 2
-VAR NGItems = 
+Capable Pct =
+DIVIDE(
     CALCULATE(
-        DISTINCTCOUNT(QC_Inspection_Header[run_number]) / 2,
-        QC_Inspection_Header[status_check] = "NG"
-    )
-RETURN
-DIVIDE(TotalItems - NGItems, TotalItems, 0)
+        DISTINCTCOUNT(QC_GDT_Statistics[measurement_code]),
+        QC_GDT_Statistics[ppk_status] IN {"Capable", "Capable (Low Sample)"}
+    ),
+    DISTINCTCOUNT(QC_GDT_Statistics[measurement_code]),
+    0
+)
 ```
 
-#### Power BI Visualizations
-
-![Power BI Pareto Dashboard](Paretochart.png)
-
-**1. Pareto Chart - Top Problem Points**
-Shows which measurement points have the most NG results:
-
-```
-X-axis: measurement_code
-Y-axis: Count of NG
-Sort: Descending by NG count
-Line: Cumulative percentage
+**2. Avg PPK**
+```dax
+Avg PPK =
+AVERAGE(QC_GDT_Statistics[PPK])
 ```
 
-**2. PPK Distribution**
-
-```
-X-axis: PPK value bins (0-0.5, 0.5-1.0, 1.0-1.33, 1.33+)
-Y-axis: Count of measurement points
-Color: Red (<1.0), Yellow (1.0-1.33), Green (>1.33)
-```
-
-**3. Trend Over Time**
-
-```
-X-axis: Date
-Y-axis: NG Rate or Average PPK
-Filter: Production line, date range
+**3. Latest PPK per Point**
+```dax
+Latest PPK =
+CALCULATE(
+    LASTNONBLANK(QC_GDT_Statistics[PPK], 1),
+    LASTDATE(QC_GDT_Statistics[calculated_at])
+)
 ```
 
-**4. Heat Map - NG by Point and Date**
-
+**4. Camera vs CMM Gap**
+```dax
+Camera CMM Gap =
+VAR CameraVal = CALCULATE(AVERAGE(QC_GDT_Data[value]), QC_GDT_Data[source] = "Camera")
+VAR CMMVal = CALCULATE(AVERAGE(QC_GDT_Data[value]), QC_GDT_Data[source] = "CMM")
+RETURN CameraVal - CMMVal
 ```
-Rows: measurement_code
-Columns: Date
-Values: NG count
-Color: Gradient (white to red)
-```
 
-#### Using Reports for Improvement
-
-1. **Review Pareto Chart** → Find top 5 problem points
-2. **Check PPK values** → Identify points with PPK < 1.0
-3. **Use traceability** → Find which items had problems
-4. **Analyze pattern** → Time-based? Shift-based? Model-based?
-5. **Fix at pain point** → Adjust machine, tooling, or process
-6. **Monitor improvement** → Check if PPK improves in next report
-
----
-
-### Report Distribution
+#### Report Distribution
 
 | Report | Recipients | Schedule |
 |--------|------------|----------|
-| Daily Dashboard | QC Team | Real-time (Grafana) |
-| Weekly Summary | Engineering, QC Manager | Every Monday |
-| Monthly Report | Management | First week of month |
-| Alert Email | QC Supervisor | When PPK < 1.0 detected |
+| Real-time SPC | QC Team | Always-on (Grafana) |
+| Daily PPK Summary (Page 1) | QC Supervisor | Real-time (Power BI DirectQuery) |
+| Camera vs CMM (Pages 3-4) | Engineering | Reviewed weekly |
+| Monthly Quality Report | Management | First week of month |
+| Alert Email | QC Supervisor | When PPK_status = "Not Capable" detected |
 
 ---
 
-## 11. Traceability
+## 12. Traceability
 
 Every item has its own unique ID for complete traceability. This ID is stored in database as `run_number`.
 
@@ -1617,12 +1733,12 @@ Every item has its own unique ID for complete traceability. This ID is stored in
 {production_line}-{date}-{part_code}-{serial}-{sequence}-{side}
 ```
 
-Example: `Production1L1-23122025-ABC123DEF-GHIJK12-001-LH`
+Example: `Line_01-23042026-ABC123DEF-GHIJK12-001-LH`
 
 | Component | Description |
 |-----------|-------------|
-| Production1L1 | Production line |
-| 23122025 | Processing date (DDMMYYYY) |
+| Line_01 | Production line |
+| 23042026 | Processing date (DDMMYYYY) |
 | ABC123DEF | Part code from filename |
 | GHIJK12 | Serial from filename |
 | 001 | Sequence number |
@@ -1640,7 +1756,8 @@ flowchart TD
     E --> G[Production date/time]
     E --> H[Machine settings]
     E --> I[Other related data]
-    I --> J[Fix at pain point]
+    E --> J[v2.0: Source row of any PPK<br/>via gdt_data_id FK]
+    J --> K[Fix at pain point]
 ```
 
 ### Traceability Queries
@@ -1648,7 +1765,7 @@ flowchart TD
 **1. Find items with NG at specific point:**
 
 ```sql
-SELECT 
+SELECT
     h.run_number,
     h.file_name,
     h.log_date,
@@ -1657,76 +1774,45 @@ SELECT
     d.value,
     d.quality_status
 FROM QC_GDT_Data d
-JOIN QC_Inspection_Header h 
+JOIN QC_Inspection_Header h
     ON d.run_number = h.run_number
-WHERE d.production_line = 'Production1L1'
-  AND d.measurement_code = 'Production1L1_MTG_1_211'
+WHERE d.production_line = 'Line_01'
+  AND d.measurement_code = 'Line_01_MTG_1_211'
   AND d.quality_status = 'NG'
   AND d.data_type IN ('LH', 'RH')
 ORDER BY d.log_date DESC
 ```
 
-**2. Get all data for specific item:**
+**2. v2.0: Trace any PPK value back to source row:**
 
 ```sql
--- Header info
+SELECT
+    s.run_number,
+    s.measurement_code,
+    s.PPK,
+    s.ppk_status,
+    s.sample_count,
+    s.calculated_at,
+    d.value AS source_value,
+    d.log_date AS source_log_date,
+    h.file_name AS source_file
+FROM QC_GDT_Statistics s
+JOIN QC_GDT_Data d ON s.gdt_data_id = d.id
+JOIN QC_Inspection_Header h ON d.run_number = h.run_number
+WHERE s.PPK < 1.0
+  AND s.production_line = 'Line_01'
+ORDER BY s.calculated_at DESC
+```
+
+**3. Get all data for specific item:**
+
+```sql
 SELECT * FROM QC_Inspection_Header
-WHERE run_number LIKE 'Production1L1-23122025-ABC123DEF%'
+WHERE run_number LIKE 'Line_01-23042026-ABC123DEF%'
 
--- All GDT measurements
 SELECT * FROM QC_GDT_Data
-WHERE run_number LIKE 'Production1L1-23122025-ABC123DEF%'
-AND data_type IN ('LH', 'RH')
+WHERE run_number LIKE 'Line_01-23042026-ABC123DEF%'
 ORDER BY measurement_code
-
--- All XYZ measurements
-SELECT * FROM QC_XYZ_Data
-WHERE run_number LIKE 'Production1L1-23122025-ABC123DEF%'
-AND data_type IN ('LH', 'RH')
-ORDER BY measurement_code
-```
-
-**3. Find items with value out of range:**
-
-```sql
-SELECT 
-    d.run_number,
-    d.measurement_code,
-    d.value,
-    s.spec_min,
-    s.spec_max,
-    d.log_date
-FROM QC_GDT_Data d
-JOIN QC_Specs s 
-    ON d.measurement_code = s.measurement_code
-    AND d.production_line = s.production_line
-WHERE d.production_line = 'Production1L1'
-  AND d.data_type = 'LH'
-  AND (d.value < s.spec_min OR d.value > s.spec_max)
-  AND d.log_date >= DATEADD(day, -7, GETDATE())
-ORDER BY d.log_date DESC
-```
-
-**4. Find items by time range:**
-
-```sql
-SELECT DISTINCT 
-    h.run_number,
-    h.file_name,
-    h.log_date,
-    h.status_check
-FROM QC_Inspection_Header h
-WHERE h.production_line = 'Production1L1'
-  AND h.log_date BETWEEN '2025-12-22 07:00:00' AND '2025-12-22 19:30:00'
-ORDER BY h.log_date
-```
-
-**5. Find original filename from run_number:**
-
-```sql
-SELECT file_name, log_date
-FROM QC_Inspection_Header
-WHERE run_number = 'Production1L1-23122025-ABC123DEF-GHIJK12-001-LH'
 ```
 
 ### Benefits of Traceability
@@ -1738,20 +1824,21 @@ WHERE run_number = 'Production1L1-23122025-ABC123DEF-GHIJK12-001-LH'
 | **Customer Response** | Quick answer when customer asks about specific item |
 | **Process Improvement** | Find pattern in problem items |
 | **Audit Compliance** | Full history of all measurements |
+| **🆕 PPK Lineage (v2.0)** | Trace any PPK back to its 125 source samples |
 
 ---
 
-## 12. Adding New Production Line
+## 13. Adding New Production Line
 
-Each production line has its own code because measurement data and points are different. When adding a new line, create new code referencing from existing line.
+Each production line has its own main script because measurement data and points are different. When adding a new line, create new code referencing from existing line.
 
-### Why Each Line Has Own Code
+### Why Each Line Has Own Script
 
 | Reason | Description |
 |--------|-------------|
 | Different measurement points | Each line measures different locations |
 | Different specification limits | Tolerances vary by product design |
-| Different Excel format | CMM output columns may differ |
+| Different Excel format | Camera output columns may differ |
 | Different file naming | Filename pattern may vary |
 
 ### Steps to Add New Line
@@ -1759,90 +1846,75 @@ Each production line has its own code because measurement data and points are di
 #### Step 1: Copy Code from Reference Line
 
 ```bash
-# Copy main script
-cp MainSCPProduction1L1.py MainSCPProduction1L2.py
-
-# Other files are shared (no need to copy):
-# - unified_qc_insert.py
-# - unified_ppk_calculator.py
-# - spec_loader.py
-# - SPCLogger.py
+cp MainSPC_Line_01.py MainSPC_Line_NEW.py
 ```
+
+Other files are shared (no need to copy):
+- `unified_qc_insert.py`
+- `statistics_calculator.py` (v2.0)
+- `spec_loader.py`
+- `SPCLogger.py`
 
 #### Step 2: Update Main Script
 
-Edit `MainSCPProduction1L2.py`:
-
 ```python
 # Change production line
-PRODUCTION_LINE = "Production1L2"  # Was "Production1L1"
+PRODUCTION_LINE = "Line_NEW"
 
 # Update directory variable
-directory_path = get_path("Production1L2_DIRECTORY", create_if_missing=False)
+directory_path = get_path("Line_NEW_DIRECTORY", create_if_missing=False)
 
 # Update filename pattern (if different)
-def is_valid_Production1_filename(filename):
-    pattern = r'^Production1_No2_PB3C-5005-[A-Z0-9]{9}-[A-Z0-9]{5,7}-\d{3}\.xlsx$'
+def is_valid_filename(filename):
+    pattern = r'^Line_NEW_*.xlsx$'
     return bool(re.match(pattern, filename, re.IGNORECASE))
 
 # Update DATA_MAP if Excel structure differs
-Production1L2_DATA_MAP = {
+Line_NEW_DATA_MAP = {
     "gdt_sheet": "GD&T Data",
     "gdt_cols": "E,I,U",
     "gdt_skiprows": 21,
-    "gdt_nrows": 372,     # Update if different
+    "gdt_nrows": 372,
     # ... etc
 }
 ```
 
 #### Step 3: Add Specifications to Database
 
-Insert specs for the new line in `QC_Specs` table:
-
 ```sql
--- Example: Insert GDT specs for Production1L2
-INSERT INTO QC_Specs 
-(production_line, measurement_code, measurement_name, measurement_type, 
+INSERT INTO QC_Specs
+(production_line, measurement_code, measurement_name, measurement_type,
  spec_min, spec_max, point_group, is_active, created_date)
 VALUES
-('Production1L2', 'Production1L2_MTG_1_211', 'Position MTG 1-211', 'GDT', -2.5, 2.5, 'LH', 1, GETDATE()),
-('Production1L2', 'Production1L2_MTG_1_211', 'Position MTG 1-211', 'GDT', -2.5, 2.5, 'RH', 1, GETDATE()),
+('Line_NEW', 'Line_NEW_MTG_1_211', 'Position MTG 1-211', 'GDT', -2.5, 2.5, 'LH', 1, GETDATE()),
+('Line_NEW', 'Line_NEW_MTG_1_211', 'Position MTG 1-211', 'GDT', -2.5, 2.5, 'RH', 1, GETDATE())
 -- ... add all specs
 ```
 
-Or import from Excel:
-1. Prepare Excel with columns: measurement_code, measurement_name, measurement_type, spec_min, spec_max, point_group
-2. Use SQL Server Import Wizard
-
 #### Step 4: Update .env Configuration
 
-Add new directory in `.env`:
-
 ```ini
-# Line 2 directory
-Production1L2_DIRECTORY=D:\Data\Production1 No2 LOG
+Line_NEW_DIRECTORY=D:\Data\Line_NEW_LOG
 ```
 
 #### Step 5: Install and Test
 
 ```bash
-# Test run
-python MainSCPProduction1L2.py
-
-# Check:
-# - Specs loaded correctly
-# - Files detected
-# - Data inserted to database
-# - No errors in log
+python MainSPC_Line_NEW.py
 ```
+
+Check:
+- Specs loaded correctly
+- Files detected
+- Data inserted to database
+- All 7 tables populated (v2.0 verification)
+- No errors in log
 
 #### Step 6: Install as Service (if needed)
 
 ```bash
-nssm install SPC_Production1L2 "C:\Python310\python.exe" "C:\SPC_System\MainSCPProduction1L2.py"
-nssm set SPC_Production1L2 AppDirectory "C:\SPC_System"
-nssm set SPC_Production1L2 DisplayName "SPC Quality System - Production1L2"
-nssm start SPC_Production1L2
+nssm install SPC_Line_NEW "C:\Python310\python.exe" "C:\SPC_System\MainSPC_Line_NEW.py"
+nssm start SPC_Line_NEW
 ```
 
 ### Checklist for New Line
@@ -1855,210 +1927,187 @@ nssm start SPC_Production1L2
 - [ ] Insert specs to QC_Specs table
 - [ ] Add directory to .env
 - [ ] Test with sample Excel file
-- [ ] Verify data appears in database
+- [ ] Verify all 7 tables populated (v2.0)
 - [ ] Add to Grafana dashboards
 - [ ] Add to Power BI reports
 - [ ] Install as Windows service
 - [ ] Document the new line
 
-### Database - No Changes Needed!
+### Database — No Changes Needed!
 
 The universal database design means:
 - ✅ No new tables needed
 - ✅ Just add data with new `production_line` value
 - ✅ Grafana/Power BI queries work automatically (filter by line)
+- ✅ Same applies to v2.0 statistics tables
 
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 ### Common Issues and Solutions
 
 #### Issue 1: Service Won't Start
 
-**Symptoms:**
-- Windows service fails to start
-- Error in Event Viewer
+**Symptoms:** Windows service fails to start.
 
 **Solutions:**
 1. Check Python path is correct in NSSM
 2. Check .env file exists and is readable
-3. Run script manually to see error:
-   ```bash
-   python MainSCPProduction1L1.py
-   ```
+3. Run script manually to see error
 4. Check log file for errors
 
 ---
 
 #### Issue 2: Files Not Being Processed
 
-**Symptoms:**
-- New Excel files appear but not processed
-- Console shows "No valid Production1 files found"
+**Symptoms:** New Excel files appear but not processed.
 
 **Solutions:**
-1. Check filename pattern matches:
-   ```
-   Production1_No1_PB3C-5005-*.xlsx
-   ```
+1. Check filename pattern matches the line's regex
 2. Check file is not already in processed log
-3. Check file modification date is within LOOKBACK_DAYS
+3. Check file modification date is within `LOOKBACK_DAYS`
 4. Check folder permissions
 
 ---
 
 #### Issue 3: Database Connection Failed
 
-**Symptoms:**
-- Error: "Could not connect to database"
-- Error: "No compatible driver found"
+**Symptoms:** "Could not connect to database" or "No compatible driver found".
 
 **Solutions:**
 1. Install ODBC Driver 17 or 18
-2. Check DB_SERVER IP is correct
-3. Check DB_USER and DB_PASS
+2. Check `DB_SERVER` IP is correct
+3. Check `DB_USER` and `DB_PASS`
 4. Test connection with SQL Server Management Studio
 5. Check firewall allows port 1433
+6. **v2.0:** System will auto-retry 3 times before giving up
 
 ---
 
-#### Issue 4: PPK Shows 0 for All Points
+#### Issue 4: PPK Shows NULL for All Points (v2.0)
 
-**Symptoms:**
-- PPK/PP values are all 0
-- UCL/LCL are 0
+**Symptoms:** PPK/PP values are all NULL in `QC_GDT_Statistics`.
 
 **Solutions:**
-1. Need at least 125 samples in database
+1. Need at least 2 samples (MIN_SAMPLES_FOR_PPK = 2)
 2. Check if data is being inserted correctly
-3. Check spec limits in QC_Specs table
-4. Run PPK calculator test:
-   ```python
-   from unified_ppk_calculator import UnifiedPPKCalculator
-   calc = UnifiedPPKCalculator("Production1L1", "GDT")
-   result = calc.calculate_all_ppk()
-   print(result)
+3. Check spec limits in `QC_Specs` table
+4. Check console for debug counters:
    ```
+   [PPK] GDT: calculated=X, no_spec=Y, no_data=Z, std=0=W
+   ```
+5. If `std=0` is high, all samples have the same value (genuinely NULL PPK)
+6. If `no_spec` is high, specs are missing from `QC_Specs` table
 
 ---
 
 #### Issue 5: All Status Shows N/A
 
-**Symptoms:**
-- quality_status is N/A for all records
-- No OK or NG
+**Symptoms:** `quality_status` is N/A for all records.
 
 **Solutions:**
-1. Check specs loaded correctly:
-   ```python
-   from spec_loader import load_specs
-   specs = load_specs("Production1L1")
-   print(len(specs.gdt_specs_lh))  # Should be 372
-   ```
-2. Check QC_Specs table has specs for this line
+1. Check specs loaded correctly via console output
+2. Check `QC_Specs` table has specs for this line
 3. Delete spec cache and reload:
    ```bash
-   del Production1L1_Log\Specs\Specs_Production1L1.xlsx
-   python MainSCPProduction1L1.py
+   del Line_xx_Log\Specs\Specs_Line_xx.xlsx
+   python MainSPC_Line_xx.py
    ```
 
 ---
 
 #### Issue 6: Excel File Read Error
 
-**Symptoms:**
-- Error: "Failed to read Excel file"
-- Error: "Sheet not found"
+**Symptoms:** "Failed to read Excel file" or "Sheet not found".
 
 **Solutions:**
 1. Check Excel file is not corrupted
-2. Check sheet names match DATA_MAP
+2. Check sheet names match `DATA_MAP`
 3. Check file is not open in Excel
-4. Try opening file manually in Python:
-   ```python
-   import pandas as pd
-   df = pd.read_excel("file.xlsx", sheet_name="GD&T Data")
-   print(df.shape)
-   ```
+4. Check skiprows / nrows match the actual file structure
 
 ---
 
 #### Issue 7: Duplicate Records in Database
 
-**Symptoms:**
-- Same file processed multiple times
-- Duplicate run_numbers
+**Symptoms:** Same file processed multiple times.
 
 **Solutions:**
-1. Check processed_files_log.xlsx exists
+1. Check `processed_files_log.xlsx` exists
 2. Check SQL database connection for duplicate check
-3. Clear processed log and database for testing:
-   ```sql
-   -- BE CAREFUL: This deletes data!
-   DELETE FROM QC_GDT_Data WHERE run_number LIKE 'Production1L1-23122025%'
-   DELETE FROM QC_XYZ_Data WHERE run_number LIKE 'Production1L1-23122025%'
-   DELETE FROM QC_PPK_PP_Data WHERE run_number LIKE 'Production1L1-23122025%'
-   DELETE FROM QC_Inspection_Header WHERE run_number LIKE 'Production1L1-23122025%'
-   ```
+3. Verify `LOOKBACK_DAYS` is not too short
 
 ---
 
 #### Issue 8: Spec Limits Wrong
 
-**Symptoms:**
-- OK items showing as NG
-- NG items showing as OK
+**Symptoms:** OK items showing as NG, or NG showing as OK.
 
 **Solutions:**
-1. Check QC_Specs table values
-2. Verify point_group (LH/RH) is correct
+1. Check `QC_Specs` table values
+2. Verify `point_group` (LH/RH) is correct
 3. Delete spec cache to reload from SQL:
    ```bash
-   del Production1L1_Log\Specs\Specs_Production1L1.xlsx
+   del Line_xx_Log\Specs\Specs_Line_xx.xlsx
    ```
-4. Check spec lookup:
-   ```python
-   from unified_qc_insert import UnifiedQCInspector
-   qc = UnifiedQCInspector("Production1L1")
-   status = qc.get_gdt_status("Production1L1_MTG_1_211", 0.5, "LH")
-   print(status)  # Should be OK or NG
-   ```
+4. Check spec lookup in console output
 
 ---
 
 #### Issue 9: Slow Performance
 
-**Symptoms:**
-- Processing takes too long
-- Database inserts are slow
+**Symptoms:** Processing takes too long.
 
 **Solutions:**
 1. Check network connection to SQL Server
 2. Add indexes to database:
    ```sql
-   CREATE INDEX IX_GDT_Lookup ON QC_GDT_Data 
+   CREATE INDEX IX_GDT_Lookup ON QC_GDT_Data
    (production_line, measurement_code, data_type, log_date)
-   
-   CREATE INDEX IX_XYZ_Lookup ON QC_XYZ_Data 
-   (production_line, measurement_code, data_type, log_date)
+
+   CREATE INDEX IX_GDT_Stats_Lookup ON QC_GDT_Statistics
+   (production_line, measurement_code, data_type, calculated_at)
    ```
-3. Check if skip_zeros is enabled (reduces insert size)
-4. Increase COUNTDOWN_SECONDS if processing too frequently
+3. Check if `skip_zeros` is enabled
+4. Increase `COUNTDOWN_SECONDS` if processing too frequently
 
 ---
 
-#### Issue 10: Memory Usage High
+#### Issue 10: PySpark Spec Loading Fails (v2.0)
 
-**Symptoms:**
-- Python process uses too much RAM
-- System becomes slow
+**Symptoms:** `[WARN] PySpark JDBC failed: ...`
 
 **Solutions:**
-1. Check for memory leaks in long-running process
-2. Restart service periodically (weekly)
-3. Clear data containers after each cycle (already implemented)
-4. Check Excel file sizes - very large files may cause issues
+1. **This is OK** — system automatically falls back to pyodbc
+2. To use PySpark, install: `pip install pyspark`
+3. Download Microsoft JDBC driver and add to Spark classpath
+4. Verify Java is installed (PySpark requires JVM)
+5. If you don't need PySpark, ignore the warning
+
+---
+
+#### Issue 11: Verification Says Tables MISSING (v2.0)
+
+**Symptoms:** `[VERIFY] QC_GDT_Statistics: 0 rows [MISSING]`
+
+**Solutions:**
+1. Check console for upstream errors during stats calculation
+2. Check if `MIN_SAMPLES_FOR_PPK` was met
+3. Check if specs exist in `QC_Specs`
+4. Run will be added to retry queue automatically
+5. If retry also fails, check SQL connection stability
+
+---
+
+#### Issue 12: Memory Usage High
+
+**Symptoms:** Python process uses too much RAM.
+
+**Solutions:**
+1. Restart service periodically (weekly)
+2. Check Excel file sizes — very large files may cause issues
+3. PySpark adds memory overhead — disable if not needed
 
 ---
 
@@ -2066,14 +2115,12 @@ The universal database design means:
 
 If issues persist:
 
-1. **Check Logs** - `Production1L1_Log/Logs/SPC_Log_*.xlsx`
-2. **Run Manually** - Stop service, run `python MainSCPProduction1L1.py`
-3. **Enable Debug** - Add print statements to code
-4. **Check Database** - Verify data in SQL tables
-5. **Test Components** - Run individual modules to isolate issue
+1. **Check Logs** — `{Line}_Log/Logs/SPC_Log_*.xlsx`
+2. **Run Manually** — Stop service, run `python MainSPC_{Line}.py`
+3. **Enable Debug** — Add print statements to code
+4. **Check Database** — Verify data in SQL tables
+5. **Test Components** — Run individual modules to isolate issue
 
 ---
 
----
-
-*Last Updated: December 2025*
+*Last Updated: April 2026 (v2.0 release)*
